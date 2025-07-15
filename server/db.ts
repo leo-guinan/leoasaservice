@@ -11,7 +11,9 @@ export function getDb() {
   }
   
   if (!db) {
-    client = postgres(process.env.DATABASE_URL);
+    client = postgres(process.env.DATABASE_URL, {
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
     db = drizzle(client, { schema });
   }
   

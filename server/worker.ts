@@ -3,8 +3,13 @@ import Redis from 'ioredis';
 import { storage } from './storage';
 import OpenAI from 'openai';
 
-// Redis connection
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// Redis connection - only connect if REDIS_URL is provided
+let redis: Redis | null = null;
+if (process.env.REDIS_URL) {
+  redis = new Redis(process.env.REDIS_URL);
+} else {
+  console.log('Redis not configured, background processing disabled');
+}
 
 // OpenAI client
 const openai = new OpenAI({ 
@@ -24,76 +29,80 @@ export interface AnalyzeContentJob {
   type: 'url' | 'chat' | 'question';
 }
 
-// Create queues
-export const urlProcessingQueue = new Queue<ProcessUrlJob>('url-processing', {
+// Create queues - only if Redis is available
+export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
   }
-});
+}) : null;
 
-export const contentAnalysisQueue = new Queue<AnalyzeContentJob>('content-analysis', {
+export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
   }
-});
+}) : null;
 
 // URL processing worker
-urlProcessingQueue.process(async (job) => {
-  const { userId, urlId, url } = job.data;
-  
-  try {
-    console.log(`Processing URL: ${url} for user ${userId}`);
+if (urlProcessingQueue) {
+  urlProcessingQueue.process(async (job) => {
+    const { userId, urlId, url } = job.data;
     
-    // Fetch URL content (you'd implement this based on your needs)
-    const content = await fetchUrlContent(url);
-    
-    // Analyze content with AI
-    const analysis = await analyzeContent(content);
-    
-    // Store results (you'd need to add this to your storage)
-    await storage.updateUrlAnalysis(urlId, analysis);
-    
-    console.log(`URL processing completed for ${url}`);
-    return { success: true, analysis };
-  } catch (error) {
-    console.error(`URL processing failed for ${url}:`, error);
-    throw error;
-  }
-});
+    try {
+      console.log(`Processing URL: ${url} for user ${userId}`);
+      
+      // Fetch URL content (you'd implement this based on your needs)
+      const content = await fetchUrlContent(url);
+      
+      // Analyze content with AI
+      const analysis = await analyzeContent(content);
+      
+      // Store results (you'd need to add this to your storage)
+      await storage.updateUrlAnalysis(urlId, userId, analysis);
+      
+      console.log(`URL processing completed for ${url}`);
+      return { success: true, analysis };
+    } catch (error) {
+      console.error(`URL processing failed for ${url}:`, error);
+      throw error;
+    }
+  });
+}
 
 // Content analysis worker
-contentAnalysisQueue.process(async (job) => {
-  const { userId, content, type } = job.data;
-  
-  try {
-    console.log(`Analyzing content for user ${userId}, type: ${type}`);
+if (contentAnalysisQueue) {
+  contentAnalysisQueue.process(async (job) => {
+    const { userId, content, type } = job.data;
     
-    const analysis = await analyzeContent(content);
-    
-    // Store analysis results based on type
-    switch (type) {
-      case 'url':
-        // Handle URL analysis storage
-        break;
-      case 'chat':
-        // Handle chat analysis storage
-        break;
-      case 'question':
-        // Handle question analysis storage
-        break;
+    try {
+      console.log(`Analyzing content for user ${userId}, type: ${type}`);
+      
+      const analysis = await analyzeContent(content);
+      
+      // Store analysis results based on type
+      switch (type) {
+        case 'url':
+          // Handle URL analysis storage
+          break;
+        case 'chat':
+          // Handle chat analysis storage
+          break;
+        case 'question':
+          // Handle question analysis storage
+          break;
+      }
+      
+      console.log(`Content analysis completed for user ${userId}`);
+      return { success: true, analysis };
+    } catch (error) {
+      console.error(`Content analysis failed for user ${userId}:`, error);
+      throw error;
     }
-    
-    console.log(`Content analysis completed for user ${userId}`);
-    return { success: true, analysis };
-  } catch (error) {
-    console.error(`Content analysis failed for user ${userId}:`, error);
-    throw error;
-  }
-});
+  });
+}
 
 // Helper function to fetch URL content
 async function fetchUrlContent(url: string): Promise<string> {
@@ -138,19 +147,23 @@ async function analyzeContent(content: string): Promise<any> {
 }
 
 // Error handling
-urlProcessingQueue.on('error', (error) => {
-  console.error('URL processing queue error:', error);
-});
+if (urlProcessingQueue) {
+  urlProcessingQueue.on('error', (error) => {
+    console.error('URL processing queue error:', error);
+  });
+}
 
-contentAnalysisQueue.on('error', (error) => {
-  console.error('Content analysis queue error:', error);
-});
+if (contentAnalysisQueue) {
+  contentAnalysisQueue.on('error', (error) => {
+    console.error('Content analysis queue error:', error);
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  await urlProcessingQueue.close();
-  await contentAnalysisQueue.close();
-  await redis.quit();
+  if (urlProcessingQueue) await urlProcessingQueue.close();
+  if (contentAnalysisQueue) await contentAnalysisQueue.close();
+  if (redis) await redis.quit();
   process.exit(0);
 });
 

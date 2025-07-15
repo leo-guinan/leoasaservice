@@ -82,12 +82,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const urlData = insertUrlSchema.parse(req.body);
       const url = await storage.createUrl(req.user!.id, urlData);
       
-      // Queue background processing
-      await urlProcessingQueue.add({
-        userId: req.user!.id,
-        urlId: url.id,
-        url: url.url
-      });
+      // Queue background processing (if Redis is available)
+      if (urlProcessingQueue) {
+        await urlProcessingQueue.add({
+          userId: req.user!.id,
+          urlId: url.id,
+          url: url.url
+        });
+      }
       
       res.json(url);
     } catch (error) {
