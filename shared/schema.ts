@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ export const urls = pgTable("urls", {
   url: text("url").notNull(),
   title: text("title"),
   notes: text("notes"),
+  analysis: jsonb("analysis"), // Store AI analysis results
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

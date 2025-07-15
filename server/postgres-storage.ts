@@ -39,6 +39,15 @@ export class PostgresStorage implements IStorage {
     return result.length > 0;
   }
 
+  async updateUrlAnalysis(id: number, userId: number, analysis: any): Promise<Url | undefined> {
+    const result = await getDb().update(urls)
+      .set({ analysis })
+      .where(eq(urls.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
   async getChatMessages(userId: number): Promise<ChatMessage[]> {
     return await getDb().select().from(chatMessages).where(eq(chatMessages.userId, userId)).orderBy(desc(chatMessages.createdAt));
   }

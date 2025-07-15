@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertUrlSchema, insertChatMessageSchema, insertLeoQuestionSchema } from "@shared/schema";
 import OpenAI from "openai";
 import { authenticateToken, registerUser, loginUser, type AuthRequest } from "./auth";
+import { urlProcessingQueue, contentAnalysisQueue } from "./worker";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -80,6 +81,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const urlData = insertUrlSchema.parse(req.body);
       const url = await storage.createUrl(req.user!.id, urlData);
+      
+      // Queue background processing
+      await urlProcessingQueue.add({
+        userId: req.user!.id,
+        urlId: url.id,
+        url: url.url
+      });
+      
       res.json(url);
     } catch (error) {
       res.status(400).json({ message: "Invalid URL data" });
