@@ -4,21 +4,37 @@ import { Plus, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import AddUrlModal from "./add-url-modal";
 import type { Url } from "@shared/schema";
 
 export default function UrlCollector() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+  const { getAuthHeaders } = useAuth();
 
   const { data: urls = [], isLoading } = useQuery<Url[]>({
     queryKey: ["/api/urls"],
+    queryFn: async () => {
+      const response = await fetch("/api/urls", {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch URLs");
+      }
+      return response.json();
+    },
   });
 
   const deleteUrlMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/urls/${id}`, {
         method: "DELETE",
+        headers: {
+          ...getAuthHeaders(),
+        },
       });
       if (!response.ok) {
         throw new Error("Failed to delete URL");

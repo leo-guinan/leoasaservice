@@ -1,6 +1,10 @@
 import { users, urls, chatMessages, leoQuestions, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion } from "@shared/schema";
+import { hashPassword } from "./auth";
 
 export interface IStorage {
+  // Initialization
+  initialize(): Promise<void>;
+  
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -41,9 +45,16 @@ export class MemStorage implements IStorage {
     this.currentUrlId = 1;
     this.currentChatMessageId = 1;
     this.currentLeoQuestionId = 1;
-    
+  }
+
+  async initialize() {
     // Create a default user for demo purposes
-    this.createUser({ username: "alex", password: "password" });
+    await this.initializeDefaultUser();
+  }
+
+  private async initializeDefaultUser() {
+    const hashedPassword = await hashPassword("password");
+    this.createUser({ username: "alex", password: hashedPassword });
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -75,6 +86,8 @@ export class MemStorage implements IStorage {
       ...insertUrl,
       id,
       userId,
+      title: insertUrl.title || null,
+      notes: insertUrl.notes || null,
       createdAt: new Date(),
     };
     this.urls.set(id, url);
@@ -154,4 +167,15 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { PostgresStorage } from "./postgres-storage";
+
+// Factory function to create the appropriate storage instance
+export function createStorage(): IStorage {
+  // Use PostgreSQL if DATABASE_URL is available, otherwise use memory storage
+  if (process.env.DATABASE_URL) {
+    return new PostgresStorage();
+  }
+  return new MemStorage();
+}
+
+export const storage = createStorage();

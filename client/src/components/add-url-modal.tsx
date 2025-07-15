@@ -23,10 +23,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { insertUrlSchema } from "@shared/schema";
 
-const formSchema = insertUrlSchema.extend({
+const formSchema = z.object({
   url: z.string().url("Please enter a valid URL"),
+  title: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -38,6 +41,7 @@ interface AddUrlModalProps {
 
 export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
   const { toast } = useToast();
+  const { getAuthHeaders } = useAuth();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -52,7 +56,10 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
     mutationFn: async (data: FormData) => {
       const response = await fetch("/api/urls", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
@@ -134,6 +141,7 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
                     <Input
                       placeholder="Optional title"
                       {...field}
+                      value={field.value || ""}
                       disabled={addUrlMutation.isPending}
                     />
                   </FormControl>
@@ -153,6 +161,7 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
                       placeholder="Optional notes about this URL"
                       className="h-20 resize-none"
                       {...field}
+                      value={field.value || ""}
                       disabled={addUrlMutation.isPending}
                     />
                   </FormControl>

@@ -1,9 +1,18 @@
-import { Brain, User } from "lucide-react";
+import { Brain, User, LogOut } from "lucide-react";
 import UrlCollector from "@/components/url-collector";
 import AiChat from "@/components/ai-chat";
 import AskLeo from "@/components/ask-leo";
+import AuthForm from "@/components/auth-form";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 export default function Workspace() {
+  const { user, isAuthenticated, login, logout } = useAuth();
+
+  if (!isAuthenticated) {
+    return <AuthForm onAuthSuccess={login} />;
+  }
+
   return (
     <div className="h-screen flex flex-col bg-slate-50">
       {/* Header */}
@@ -16,10 +25,19 @@ export default function Workspace() {
             <h1 className="text-xl font-semibold text-slate-800">Research Workspace</h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-sm text-slate-600">Welcome back, Alex</div>
+            <div className="text-sm text-slate-600">Welcome back, {user?.username}</div>
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <User className="text-slate-600" size={16} />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={logout}
+              className="flex items-center gap-2"
+            >
+              <LogOut size={14} />
+              Logout
+            </Button>
           </div>
         </div>
       </header>

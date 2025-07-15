@@ -6,21 +6,37 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import type { LeoQuestion } from "@shared/schema";
 
 export default function AskLeo() {
   const [question, setQuestion] = useState("");
   const { toast } = useToast();
+  const { getAuthHeaders } = useAuth();
 
   const { data: questions = [], isLoading } = useQuery<LeoQuestion[]>({
     queryKey: ["/api/leo/questions"],
+    queryFn: async () => {
+      const response = await fetch("/api/leo/questions", {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch questions");
+      }
+      return response.json();
+    },
   });
 
   const submitQuestionMutation = useMutation({
     mutationFn: async (question: string) => {
       const response = await fetch("/api/leo/questions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ question }),
       });
       if (!response.ok) {
