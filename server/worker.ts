@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import Queue from 'bull';
 import Redis from 'ioredis';
 import { storage } from './storage';
