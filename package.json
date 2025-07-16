@@ -15,6 +15,8 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:prod": "./scripts/migrate-prod.sh",
+    "db:force-migrate": "./scripts/force-migrate.sh",
+    "db:check": "node scripts/check-db.js",
     "db:test-connection": "node scripts/test-db-connection.js",
     "db:studio": "drizzle-kit studio"
   },
