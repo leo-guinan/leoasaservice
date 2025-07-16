@@ -54,6 +54,8 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
 
   const addUrlMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      console.log("Sending URL data:", data);
+      
       const response = await fetch("/api/urls", {
         method: "POST",
         headers: { 
@@ -62,8 +64,11 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
         },
         body: JSON.stringify(data),
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to add URL");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("URL submission error:", errorData);
+        throw new Error(errorData.message || "Failed to add URL");
       }
       return response.json();
     },
@@ -76,10 +81,11 @@ export default function AddUrlModal({ isOpen, onClose }: AddUrlModalProps) {
       form.reset();
       onClose();
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Add URL mutation error:", error);
       toast({
         title: "Error",
-        description: "Failed to add URL. Please try again.",
+        description: error.message || "Failed to add URL. Please try again.",
         variant: "destructive",
       });
     },

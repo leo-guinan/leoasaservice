@@ -125,7 +125,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/urls", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const urlData = insertUrlSchema.parse(req.body);
+      console.log("Received URL data:", req.body);
+      
+      // Clean up the data - convert empty strings to null for optional fields
+      const cleanedData = {
+        url: req.body.url,
+        title: req.body.title || null,
+        notes: req.body.notes || null,
+      };
+      
+      console.log("Cleaned URL data:", cleanedData);
+      
+      const urlData = insertUrlSchema.parse(cleanedData);
       const url = await storage.createUrl(req.user!.id, urlData);
       
       // Queue background processing (if Redis is available)
@@ -139,6 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(url);
     } catch (error) {
+      console.error("URL validation error:", error);
       res.status(400).json({ message: "Invalid URL data" });
     }
   });
