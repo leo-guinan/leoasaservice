@@ -10,7 +10,27 @@ let redis: Redis | null = null;
 function initializeRedis() {
   if (process.env.REDIS_URL) {
     try {
-      redis = new Redis(process.env.REDIS_URL);
+      redis = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+      });
+      
+      redis.on('connect', () => {
+        console.log('Redis connected successfully');
+      });
+      
+      redis.on('error', (error) => {
+        console.error('Redis connection error:', error.message);
+      });
+      
+      redis.on('close', () => {
+        console.log('Redis connection closed');
+      });
+      
+      redis.on('reconnecting', () => {
+        console.log('Redis reconnecting...');
+      });
+      
       console.log('Redis connected successfully');
     } catch (error) {
       console.error('Failed to connect to Redis:', error);

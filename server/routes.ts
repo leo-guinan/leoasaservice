@@ -5,6 +5,9 @@ import { insertUrlSchema, insertChatMessageSchema, insertLeoQuestionSchema } fro
 import OpenAI from "openai";
 import { authenticateToken, registerUser, loginUser, type AuthRequest } from "./auth";
 import { urlProcessingQueue, contentAnalysisQueue } from "./worker";
+import { getDb } from "./db";
+import { sql } from "drizzle-orm";
+import Redis from "ioredis";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -12,6 +15,49 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check route - must be before any catch-all routes
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Check database connection
+      const db = getDb();
+      await db.execute(sql`SELECT 1`);
+      
+      // Check Redis connection (if available)
+      let redisStatus = "not_configured";
+      if (process.env.REDIS_URL) {
+        try {
+          const redis = new Redis(process.env.REDIS_URL);
+          await redis.ping();
+          await redis.quit();
+          redisStatus = "connected";
+        } catch (error) {
+          redisStatus = "error";
+        }
+      }
+      
+      res.json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        services: {
+          database: "connected",
+          redis: redisStatus,
+        },
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown error",
+        services: {
+          database: "error",
+          redis: process.env.REDIS_URL ? "unknown" : "not_configured",
+        },
+      });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
