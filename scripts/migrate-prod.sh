@@ -21,6 +21,12 @@ fi
 
 echo "Using database: $DATABASE_URL"
 
+# Add SSL mode to DATABASE_URL if not present
+if [[ "$DATABASE_URL" != *"sslmode="* ]]; then
+  export DATABASE_URL="${DATABASE_URL}?sslmode=require"
+  echo "Added SSL mode to DATABASE_URL"
+fi
+
 # Run migrations with production settings
 echo "Running migrations..."
 npx drizzle-kit migrate
