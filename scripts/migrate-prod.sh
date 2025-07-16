@@ -23,7 +23,7 @@ echo "Using database: $DATABASE_URL"
 
 # Add SSL mode to DATABASE_URL if not present
 if [[ "$DATABASE_URL" != *"sslmode="* ]]; then
-  export DATABASE_URL="${DATABASE_URL}?sslmode=require"
+  export DATABASE_URL="${DATABASE_URL}?sslmode=no-verify"
   echo "Added SSL mode to DATABASE_URL"
 fi
 
