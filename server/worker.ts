@@ -44,7 +44,7 @@ export interface AnalyzeContentJob {
 
 // Create queues - only if Redis is available
 export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
-  redis: {
+  redis: process.env.REDIS_URL || {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
@@ -52,7 +52,7 @@ export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processi
 }) : null;
 
 export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
-  redis: {
+  redis: process.env.REDIS_URL || {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
