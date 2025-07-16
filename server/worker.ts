@@ -1,6 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import Queue from 'bull';
 import Redis from 'ioredis';
 import { storage } from './storage';
@@ -8,11 +5,24 @@ import OpenAI from 'openai';
 
 // Redis connection - only connect if REDIS_URL is provided
 let redis: Redis | null = null;
-if (process.env.REDIS_URL) {
-  redis = new Redis(process.env.REDIS_URL);
-} else {
-  console.log('Redis not configured, background processing disabled');
+
+// Initialize Redis connection
+function initializeRedis() {
+  if (process.env.REDIS_URL) {
+    try {
+      redis = new Redis(process.env.REDIS_URL);
+      console.log('Redis connected successfully');
+    } catch (error) {
+      console.error('Failed to connect to Redis:', error);
+      redis = null;
+    }
+  } else {
+    console.log('Redis not configured, background processing disabled');
+  }
 }
+
+// Initialize Redis when this module is loaded
+initializeRedis();
 
 // OpenAI client
 const openai = new OpenAI({ 

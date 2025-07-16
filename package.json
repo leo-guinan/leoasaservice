@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "./scripts/migrate-prod.sh",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
