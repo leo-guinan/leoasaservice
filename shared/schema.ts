@@ -14,6 +14,7 @@ export const urls = pgTable("urls", {
   url: text("url").notNull(),
   title: text("title"),
   notes: text("notes"),
+  content: text("content"), // Store the text content of the page
   analysis: jsonb("analysis"), // Store AI analysis results
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

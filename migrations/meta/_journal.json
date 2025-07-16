@@ -8,6 +8,13 @@
       "when": 1752617841388,
       "tag": "0000_peaceful_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1752695607853,
+      "tag": "0001_mature_maginty",
+      "breakpoints": true
     }
   ]
 }
