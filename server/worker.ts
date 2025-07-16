@@ -85,21 +85,38 @@ if (urlProcessingQueue) {
     const { userId, urlId, url } = job.data;
     
     try {
-      console.log(`Processing URL: ${url} for user ${userId}`);
+      console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
       
-      // Fetch URL content (you'd implement this based on your needs)
+      // Fetch URL content using Jina for markdown conversion
+      console.log(`Fetching content for URL: ${url}`);
       const content = await fetchUrlContent(url);
       
+      // Save content to database
+      console.log(`Saving content to database for urlId: ${urlId}`);
+      const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
+      
+      if (!updatedUrl) {
+        throw new Error(`Failed to update URL content - URL not found or access denied`);
+      }
+      
+      console.log(`Content saved successfully. Content length: ${content.length} characters`);
+      
       // Analyze content with AI
+      console.log(`Starting AI analysis for urlId: ${urlId}`);
       const analysis = await analyzeContent(content);
       
-      // Store results (you'd need to add this to your storage)
-      await storage.updateUrlAnalysis(urlId, userId, analysis);
+      // Store analysis results
+      console.log(`Saving analysis to database for urlId: ${urlId}`);
+      const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
       
-      console.log(`URL processing completed for ${url}`);
-      return { success: true, analysis };
+      if (!urlWithAnalysis) {
+        throw new Error(`Failed to update URL analysis - URL not found or access denied`);
+      }
+      
+      console.log(`URL processing completed successfully for ${url}`);
+      return { success: true, content, analysis };
     } catch (error) {
-      console.error(`URL processing failed for ${url}:`, error);
+      console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
       throw error;
     }
   });
@@ -140,11 +157,28 @@ if (contentAnalysisQueue) {
 // Helper function to fetch URL content
 async function fetchUrlContent(url: string): Promise<string> {
   try {
-    const response = await fetch(url);
-    const html = await response.text();
+    // Ensure URL is properly encoded for Jina
+    const encodedUrl = encodeURIComponent(url);
+    const jinaUrl = `https://r.jina.ai/${encodedUrl}`;
     
-    // Basic HTML to text conversion (you might want a proper HTML parser)
-    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    console.log(`Fetching content from Jina: ${jinaUrl}`);
+    
+    const response = await fetch(jinaUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Jina API returned ${response.status}: ${response.statusText}`);
+    }
+    
+    const markdown = await response.text();
+    
+    if (!markdown || markdown.trim().length === 0) {
+      throw new Error('Empty content received from Jina');
+    }
+    
+    console.log(`Successfully fetched ${markdown.length} characters from ${url}`);
+    
+    // Return the markdown content directly
+    return markdown.trim();
   } catch (error) {
     console.error(`Failed to fetch URL content: ${url}`, error);
     throw new Error(`Failed to fetch URL content: ${error}`);

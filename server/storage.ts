@@ -15,6 +15,7 @@ export interface IStorage {
   createUrl(userId: number, url: InsertUrl): Promise<Url>;
   deleteUrl(id: number, userId: number): Promise<boolean>;
   updateUrlAnalysis(id: number, userId: number, analysis: any): Promise<Url | undefined>;
+  updateUrlContent(id: number, userId: number, content: string): Promise<Url | undefined>;
   
   // Chat message methods
   getChatMessages(userId: number): Promise<ChatMessage[]>;
@@ -89,6 +90,7 @@ export class MemStorage implements IStorage {
       userId,
       title: insertUrl.title || null,
       notes: insertUrl.notes || null,
+      content: null,
       analysis: null,
       createdAt: new Date(),
     };
@@ -111,6 +113,19 @@ export class MemStorage implements IStorage {
       const updatedUrl: Url = {
         ...url,
         analysis,
+      };
+      this.urls.set(id, updatedUrl);
+      return updatedUrl;
+    }
+    return undefined;
+  }
+
+  async updateUrlContent(id: number, userId: number, content: string): Promise<Url | undefined> {
+    const url = this.urls.get(id);
+    if (url && url.userId === userId) {
+      const updatedUrl: Url = {
+        ...url,
+        content,
       };
       this.urls.set(id, updatedUrl);
       return updatedUrl;
