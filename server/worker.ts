@@ -77,50 +77,18 @@ console.log("Using Redis URL for queues:", process.env.REDIS_URL);
 const redisUrl = new URL(process.env.REDIS_URL!);
 
 export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
-  redis: {
-    host: redisUrl.hostname,
-    port: parseInt(redisUrl.port),
-    password: redisUrl.password,
-    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-  },
+  redis: process.env.REDIS_URL,
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-  },
-  settings: {
-    stalledInterval: 30000,
-    maxStalledCount: 1,
   }
 }) : null;
 
 export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
-  redis: {
-    host: redisUrl.hostname,
-    port: parseInt(redisUrl.port),
-    password: redisUrl.password,
-    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-  },
+  redis: process.env.REDIS_URL,
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-  },
-  settings: {
-    stalledInterval: 30000,
-    maxStalledCount: 1,
   }
 }) : null;
 
@@ -168,6 +136,20 @@ if (urlProcessingQueue) {
         
         // Note: Jobs are waiting but not being processed automatically
         console.log('Jobs are waiting but not being processed. This might indicate a queue configuration issue.');
+        
+        // Check if the queue is properly configured
+        console.log('Queue configuration check:');
+        console.log('- Queue name:', urlProcessingQueue.name);
+        console.log('- Queue client connected:', urlProcessingQueue.client ? 'yes' : 'no');
+        console.log('- Queue isReady:', urlProcessingQueue.isReady());
+        
+        // Try to restart the queue processing
+        console.log('Attempting to restart queue processing...');
+        urlProcessingQueue.resume().then(() => {
+          console.log('Queue processing resumed');
+        }).catch((error: any) => {
+          console.error('Failed to resume queue processing:', error);
+        });
       }
     });
   }).catch((error) => {
