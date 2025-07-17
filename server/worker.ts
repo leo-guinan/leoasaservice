@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { Worker, Job } from 'bullmq';
 import { createUrlProcessingQueue, createContentAnalysisQueue } from '@shared/queues';
 import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
+import { getBullRedisConfig } from '@shared/redis';
 
 console.log('Worker module loaded. Initializing workers...');
 
@@ -81,6 +82,7 @@ if (urlProcessingQueue) {
       }
     },
     {
+      connection: getBullRedisConfig().redis,
       autorun: true,
       concurrency: 1,
     }
@@ -95,7 +97,7 @@ if (urlProcessingQueue) {
     console.error(`Job ${job?.id || 'unknown'} failed:`, error);
   });
   
-  urlProcessingWorker.on('progress', (job: Job<ProcessUrlJob>, progress: number | object) => {
+  urlProcessingWorker.on('progress', (job: Job<ProcessUrlJob>, progress: any) => {
     console.log(`Job ${job.id} progress:`, progress);
   });
   
@@ -160,6 +162,7 @@ if (contentAnalysisQueue) {
       }
     },
     {
+      connection: getBullRedisConfig().redis,
       autorun: true,
       concurrency: 1,
     }
@@ -174,7 +177,7 @@ if (contentAnalysisQueue) {
     console.error(`Content analysis job ${job?.id || 'unknown'} failed:`, error);
   });
   
-  contentAnalysisWorker.on('progress', (job: Job<AnalyzeContentJob>, progress: number | object) => {
+  contentAnalysisWorker.on('progress', (job: Job<AnalyzeContentJob>, progress: any) => {
     console.log(`Content analysis job ${job.id} progress:`, progress);
   });
   
