@@ -165,13 +165,21 @@ if (urlProcessingQueue) {
       
       if (waitingJobs.length > 0) {
         console.log('Waiting jobs:', waitingJobs.map(job => ({ id: job.id, data: job.data })));
+        
+        // Note: Jobs are waiting but not being processed automatically
+        console.log('Jobs are waiting but not being processed. This might indicate a queue configuration issue.');
       }
     });
   }).catch((error) => {
     console.error('Error checking existing jobs:', error);
   });
   
-  urlProcessingQueue.process(async (job) => {
+  // Set up the processor with explicit concurrency
+  urlProcessingQueue.process('url-processing', 1, async (job) => {
+    console.log(`=== PROCESSING JOB STARTED ===`);
+    console.log(`Job ID: ${job.id}`);
+    console.log(`Job data:`, job.data);
+    
     const { userId, urlId, url } = job.data;
     
     try {
@@ -204,12 +212,16 @@ if (urlProcessingQueue) {
       }
       
       console.log(`URL processing completed successfully for ${url}`);
+      console.log(`=== PROCESSING JOB COMPLETED ===`);
       return { success: true, content, analysis };
     } catch (error) {
       console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
+      console.log(`=== PROCESSING JOB FAILED ===`);
       throw error;
     }
   });
+  
+  console.log('URL processing worker registered successfully');
 } else {
   console.log('URL processing queue not initialized (no Redis).');
 }

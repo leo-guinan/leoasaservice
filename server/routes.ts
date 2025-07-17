@@ -326,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log("About to call queue.add()...");
           const job = await Promise.race([
-            urlProcessingQueue.add({
+            urlProcessingQueue.add('url-processing', {
               userId: req.user!.id,
               urlId: url.id,
               url: url.url
