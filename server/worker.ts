@@ -129,6 +129,16 @@ console.log("Queues created - contentAnalysisQueue:", contentAnalysisQueue ? "cr
 
 if (urlProcessingQueue) {
   console.log('URL processing queue initialized.');
+  console.log('Queue name:', urlProcessingQueue.name);
+  console.log('Queue Redis client:', urlProcessingQueue.client ? 'connected' : 'not connected');
+  
+  // Test queue connection
+  urlProcessingQueue.client.ping().then(() => {
+    console.log('Queue Redis connection test successful');
+  }).catch((error) => {
+    console.error('Queue Redis connection test failed:', error);
+  });
+  
   urlProcessingQueue.on('waiting', (jobId) => {
     console.log('Job waiting in URL queue:', jobId);
   });
@@ -141,6 +151,26 @@ if (urlProcessingQueue) {
   urlProcessingQueue.on('failed', (job, err) => {
     console.error('Job failed in URL queue:', job.id, err);
   });
+  urlProcessingQueue.on('ready', () => {
+    console.log('URL processing queue is ready and listening for jobs');
+  });
+  urlProcessingQueue.on('stalled', (jobId) => {
+    console.log('Job stalled in URL queue:', jobId);
+  });
+  
+  // Check for existing jobs
+  urlProcessingQueue.getWaiting().then((waitingJobs) => {
+    return urlProcessingQueue!.getActive().then((activeJobs) => {
+      console.log(`Found ${waitingJobs.length} waiting jobs and ${activeJobs.length} active jobs`);
+      
+      if (waitingJobs.length > 0) {
+        console.log('Waiting jobs:', waitingJobs.map(job => ({ id: job.id, data: job.data })));
+      }
+    });
+  }).catch((error) => {
+    console.error('Error checking existing jobs:', error);
+  });
+  
   urlProcessingQueue.process(async (job) => {
     const { userId, urlId, url } = job.data;
     

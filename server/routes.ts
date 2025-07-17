@@ -336,6 +336,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             )
           ]) as any;
           console.log("URL added to queue successfully, job ID:", job.id);
+          
+          // Check queue status after adding job
+          try {
+            const waitingJobs = await urlProcessingQueue.getWaiting();
+            const activeJobs = await urlProcessingQueue.getActive();
+            console.log(`Queue status after adding job: ${waitingJobs.length} waiting, ${activeJobs.length} active`);
+          } catch (statusError) {
+            console.error("Error checking queue status:", statusError);
+          }
         } catch (queueError) {
           console.error("Failed to add URL to queue:", queueError);
           console.error("Queue error details:", {
