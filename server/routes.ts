@@ -146,13 +146,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Adding URL to processing queue...");
         console.log("Queue object:", urlProcessingQueue ? "exists" : "null");
         console.log("Redis URL:", process.env.REDIS_URL ? "configured" : "not configured");
+        
+        // Test Redis connection in main server
+        if (process.env.REDIS_URL) {
+          try {
+            console.log("Testing Redis connection in main server...");
+            const testRedis = new Redis(process.env.REDIS_URL);
+            await testRedis.ping();
+            await testRedis.quit();
+            console.log("Redis connection test successful in main server");
+          } catch (redisError) {
+            console.error("Redis connection test failed in main server:", redisError);
+          }
+        }
+        
         try {
           console.log("About to call queue.add()...");
-          const job = await urlProcessingQueue.add({
-            userId: req.user!.id,
-            urlId: url.id,
-            url: url.url
-          });
+          const job = await Promise.race([
+            urlProcessingQueue.add({
+              userId: req.user!.id,
+              urlId: url.id,
+              url: url.url
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Queue add timeout after 10 seconds')), 10000)
+            )
+          ]) as any;
           console.log("URL added to queue successfully, job ID:", job.id);
         } catch (queueError) {
           console.error("Failed to add URL to queue:", queueError);
