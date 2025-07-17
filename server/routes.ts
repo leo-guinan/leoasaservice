@@ -6,61 +6,16 @@ import OpenAI from "openai";
 import { authenticateToken, registerUser, loginUser, type AuthRequest } from "./auth";
 import { getDb } from "./db";
 import { sql } from "drizzle-orm";
-import Redis from "ioredis";
-import Queue from 'bull';
+import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
+import { testRedisConnection } from "@shared/redis";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "your-api-key-here" 
 });
 
-// Create queue directly in routes to ensure consistent Redis configuration
-let urlProcessingQueue: Queue.Queue | null = null;
-
-if (process.env.REDIS_URL) {
-  console.log("Creating URL processing queue in routes with Redis URL:", process.env.REDIS_URL);
-  
-  // Parse Redis URL to get connection details
-  const redisUrl = new URL(process.env.REDIS_URL);
-  
-  urlProcessingQueue = new Queue('url-processing', process.env.REDIS_URL, {
-    defaultJobOptions: {
-      removeOnComplete: 10,
-      removeOnFail: 5,
-    }
-  });
-  
-  urlProcessingQueue.on('error', (error) => {
-    console.error('URL processing queue error in routes:', error);
-  });
-  
-  urlProcessingQueue.on('waiting', (jobId) => {
-    console.log('Job waiting in URL queue (routes):', jobId);
-  });
-  
-  urlProcessingQueue.on('active', (job) => {
-    console.log('Job active in URL queue (routes):', job.id);
-  });
-  
-  urlProcessingQueue.on('completed', (job, result) => {
-    console.log('Job completed in URL queue (routes):', job.id);
-  });
-  
-  urlProcessingQueue.on('failed', (job, err) => {
-    console.error('Job failed in URL queue (routes):', job.id, err);
-  });
-  
-  // Test queue connection
-  urlProcessingQueue.on('ready', () => {
-    console.log('URL processing queue is ready');
-  });
-  
-  urlProcessingQueue.on('stalled', (jobId) => {
-    console.log('Job stalled in URL queue (routes):', jobId);
-  });
-} else {
-  console.log("Redis not configured, URL processing queue not created");
-}
+// Create queue using shared configuration
+const urlProcessingQueue = createUrlProcessingQueue();
 
 // Helper function to process URLs synchronously (temporary fallback)
 async function processUrlSynchronously(urlId: number, userId: number, url: string) {
@@ -172,10 +127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let redisStatus = "not_configured";
       if (process.env.REDIS_URL) {
         try {
-          const redis = new Redis(process.env.REDIS_URL);
-          await redis.ping();
-          await redis.quit();
-          redisStatus = "connected";
+          const isConnected = await testRedisConnection();
+          redisStatus = isConnected ? "connected" : "error";
         } catch (error) {
           redisStatus = "error";
         }
@@ -297,10 +250,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (process.env.REDIS_URL) {
           try {
             console.log("Testing Redis connection in main server...");
-            const testRedis = new Redis(process.env.REDIS_URL);
-            await testRedis.ping();
-            await testRedis.quit();
-            console.log("Redis connection test successful in main server");
+            const isConnected = await testRedisConnection();
+            if (isConnected) {
+              console.log("Redis connection test successful in main server");
+            } else {
+              console.log("Redis connection test failed in main server");
+            }
           } catch (redisError) {
             console.error("Redis connection test failed in main server:", redisError);
           }
@@ -309,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log("About to call queue.add()...");
           const job = await Promise.race([
-            urlProcessingQueue.add('url-processing', {
+            addUrlProcessingJob(urlProcessingQueue!, {
               userId: req.user!.id,
               urlId: url.id,
               url: url.url

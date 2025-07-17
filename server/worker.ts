@@ -1,96 +1,19 @@
-import Queue from 'bull';
-import Redis from 'ioredis';
 import { storage } from './storage';
 import OpenAI from 'openai';
+import { createUrlProcessingQueue, createContentAnalysisQueue } from '@shared/queues';
+import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
 
 console.log('Worker module loaded. Initializing queues...');
-
-// Redis connection - only connect if REDIS_URL is provided
-let redis: Redis | null = null;
-
-// Initialize Redis connection
-function initializeRedis() {
-  console.log("Initializing Redis connection...");
-  console.log("REDIS_URL:", process.env.REDIS_URL ? "configured" : "not configured");
-  
-  if (process.env.REDIS_URL) {
-    try {
-      console.log("Creating Redis connection with URL:", process.env.REDIS_URL);
-      redis = new Redis(process.env.REDIS_URL, {
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-      });
-      
-      redis.on('connect', () => {
-        console.log('Redis connected successfully');
-      });
-      
-      redis.on('error', (error) => {
-        console.error('Redis connection error:', error.message);
-      });
-      
-      redis.on('close', () => {
-        console.log('Redis connection closed');
-      });
-      
-      redis.on('reconnecting', () => {
-        console.log('Redis reconnecting...');
-      });
-      
-      console.log('Redis connection initialized');
-    } catch (error) {
-      console.error('Failed to connect to Redis:', error);
-      redis = null;
-    }
-  } else {
-    console.log('Redis not configured, background processing disabled');
-  }
-}
-
-// Initialize Redis when this module is loaded
-initializeRedis();
 
 // OpenAI client
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "your-api-key-here" 
 });
 
-// Define job types
-export interface ProcessUrlJob {
-  userId: number;
-  urlId: number;
-  url: string;
-}
-
-export interface AnalyzeContentJob {
-  userId: number;
-  content: string;
-  type: 'url' | 'chat' | 'question';
-}
-
-// Create queues - only if Redis is available
-console.log("Creating queues...");
-console.log("Redis available:", redis ? "yes" : "no");
-console.log("Using Redis URL for queues:", process.env.REDIS_URL);
-
-// Parse Redis URL to get connection details
-const redisUrl = new URL(process.env.REDIS_URL!);
-
-export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
-  redis: process.env.REDIS_URL,
-  defaultJobOptions: {
-    removeOnComplete: 10,
-    removeOnFail: 5,
-  }
-}) : null;
-
-export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
-  redis: process.env.REDIS_URL,
-  defaultJobOptions: {
-    removeOnComplete: 10,
-    removeOnFail: 5,
-  }
-}) : null;
+// Create queues using shared configuration
+console.log("Creating queues with shared configuration...");
+export const urlProcessingQueue = createUrlProcessingQueue();
+export const contentAnalysisQueue = createContentAnalysisQueue();
 
 console.log("Queues created - urlProcessingQueue:", urlProcessingQueue ? "created" : "null");
 console.log("Queues created - contentAnalysisQueue:", contentAnalysisQueue ? "created" : "null");
@@ -136,20 +59,6 @@ if (urlProcessingQueue) {
         
         // Note: Jobs are waiting but not being processed automatically
         console.log('Jobs are waiting but not being processed. This might indicate a queue configuration issue.');
-        
-        // Check if the queue is properly configured
-        console.log('Queue configuration check:');
-        console.log('- Queue name:', urlProcessingQueue.name);
-        console.log('- Queue client connected:', urlProcessingQueue.client ? 'yes' : 'no');
-        console.log('- Queue isReady:', urlProcessingQueue.isReady());
-        
-        // Try to restart the queue processing
-        console.log('Attempting to restart queue processing...');
-        urlProcessingQueue.resume().then(() => {
-          console.log('Queue processing resumed');
-        }).catch((error: any) => {
-          console.error('Failed to resume queue processing:', error);
-        });
       }
     });
   }).catch((error) => {
@@ -157,7 +66,7 @@ if (urlProcessingQueue) {
   });
   
   // Set up processors for both job types (with and without explicit job type)
-  urlProcessingQueue.process('url-processing', 1, async (job) => {
+  urlProcessingQueue.process(JOB_TYPES.URL_PROCESSING, 1, async (job) => {
     console.log(`=== PROCESSING JOB STARTED (with type) ===`);
     console.log(`Job ID: ${job.id}`);
     console.log(`Job data:`, job.data);
@@ -377,8 +286,5 @@ if (contentAnalysisQueue) {
 process.on('SIGTERM', async () => {
   if (urlProcessingQueue) await urlProcessingQueue.close();
   if (contentAnalysisQueue) await contentAnalysisQueue.close();
-  if (redis) await redis.quit();
   process.exit(0);
-});
-
-export { redis }; 
+}); 
