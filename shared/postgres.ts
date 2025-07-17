@@ -13,6 +13,13 @@ function parseDatabaseUrl(): {
 
   const isProduction = process.env.NODE_ENV === 'production';
   
+  console.log('Database configuration:', {
+    nodeEnv: process.env.NODE_ENV,
+    isProduction,
+    sslEnabled: isProduction ? 'yes' : 'no',
+    hasDatabaseUrl: !!process.env.DATABASE_URL
+  });
+  
   return {
     url: process.env.DATABASE_URL,
     ssl: isProduction ? { rejectUnauthorized: false } : false,
@@ -22,6 +29,13 @@ function parseDatabaseUrl(): {
 // Create PostgreSQL client with consistent configuration
 export function createPostgresClient(): postgres.Sql {
   const config = parseDatabaseUrl();
+  
+  console.log('Creating PostgreSQL client with config:', {
+    url: config.url.substring(0, 20) + '...', // Don't log full URL for security
+    ssl: config.ssl,
+    nodeEnv: process.env.NODE_ENV,
+    isProduction: process.env.NODE_ENV === 'production'
+  });
   
   return postgres(config.url, {
     ssl: config.ssl,

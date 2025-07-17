@@ -4,8 +4,17 @@ import { Worker, Job } from 'bullmq';
 import { createUrlProcessingQueue, createContentAnalysisQueue } from '@shared/queues';
 import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
 import { getBullRedisConfig } from '@shared/redis';
+import { testDatabaseConnection } from '@shared/postgres';
 
 console.log('Worker module loaded. Initializing workers...');
+
+// Test database connection
+console.log('Testing database connection...');
+testDatabaseConnection().then(success => {
+  console.log('Database connection test result:', success);
+}).catch(error => {
+  console.error('Database connection test failed:', error);
+});
 
 // OpenAI client
 const openai = new OpenAI({ 
