@@ -34,10 +34,44 @@ AWS_S3_BUCKET=your-s3-bucket-name
 ## How It Works
 
 1. **Upload**: Users can upload PDF files using the file icon button in the chat
-2. **Processing**: PDFs are uploaded to S3 and text is extracted
-3. **Analysis**: The extracted text is analyzed using AI (same as URLs)
-4. **Integration**: The PDF appears in the URL list with its S3 URL
-5. **Chat**: Users can ask questions about the uploaded PDF content
+2. **Processing**: PDFs are uploaded to S3 and stored with metadata
+3. **Text Extraction**: Currently uses a placeholder. For production, consider:
+   - AWS Textract for OCR and text extraction
+   - Google Cloud Vision API
+   - Azure Computer Vision
+   - Or integrate with a different PDF parsing service
+4. **Analysis**: The extracted text is analyzed using AI (same as URLs)
+5. **Integration**: The PDF appears in the URL list with its S3 URL
+6. **Chat**: Users can ask questions about the uploaded PDF content
+
+## Text Extraction Options
+
+For production use, consider these alternatives to extract text from PDFs:
+
+### AWS Textract (Recommended)
+```javascript
+import { TextractClient, DetectDocumentTextCommand } from "@aws-sdk/client-textract";
+
+const textract = new TextractClient({ region: "us-east-1" });
+const command = new DetectDocumentTextCommand({
+  Document: { Bytes: pdfBuffer }
+});
+const result = await textract.send(command);
+const text = result.Blocks?.map(block => block.Text).join(" ") || "";
+```
+
+### Google Cloud Vision API
+```javascript
+import vision from '@google-cloud/vision';
+const client = new vision.ImageAnnotatorClient();
+// Implementation for PDF text extraction
+```
+
+### Azure Computer Vision
+```javascript
+import { ComputerVisionClient } from '@azure/cognitiveservices-computervision';
+// Implementation for PDF text extraction
+```
 
 ## File Limits
 
