@@ -32,7 +32,7 @@ export function createRedisConnection(): Redis {
   });
 }
 
-// Redis configuration for Bull queues
+// Redis configuration for BullMQ queues
 export function getBullRedisConfig() {
   const config = parseRedisUrl();
   
@@ -51,10 +51,6 @@ export function getBullRedisConfig() {
         delay: 2000,
       },
     },
-    settings: {
-      stalledInterval: 30000,
-      maxStalledCount: 1,
-    }
   };
 }
 

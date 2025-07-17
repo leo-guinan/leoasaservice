@@ -1,9 +1,10 @@
 import { storage } from './storage';
 import OpenAI from 'openai';
+import { Worker, Job } from 'bullmq';
 import { createUrlProcessingQueue, createContentAnalysisQueue } from '@shared/queues';
 import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
 
-console.log('Worker module loaded. Initializing queues...');
+console.log('Worker module loaded. Initializing workers...');
 
 // OpenAI client
 const openai = new OpenAI({ 
@@ -12,202 +13,182 @@ const openai = new OpenAI({
 
 // Create queues using shared configuration
 console.log("Creating queues with shared configuration...");
-export const urlProcessingQueue = createUrlProcessingQueue();
-export const contentAnalysisQueue = createContentAnalysisQueue();
+const urlProcessingQueue = createUrlProcessingQueue();
+const contentAnalysisQueue = createContentAnalysisQueue();
 
 console.log("Queues created - urlProcessingQueue:", urlProcessingQueue ? "created" : "null");
 console.log("Queues created - contentAnalysisQueue:", contentAnalysisQueue ? "created" : "null");
 
+// Create URL processing worker
+let urlProcessingWorker: Worker<ProcessUrlJob> | null = null;
+
 if (urlProcessingQueue) {
-  console.log('URL processing queue initialized.');
-  console.log('Queue name:', urlProcessingQueue.name);
-  console.log('Queue Redis client:', urlProcessingQueue.client ? 'connected' : 'not connected');
+  console.log('Creating URL processing worker...');
   
-  // Test queue connection
-  urlProcessingQueue.client.ping().then(() => {
-    console.log('Queue Redis connection test successful');
-  }).catch((error) => {
-    console.error('Queue Redis connection test failed:', error);
-  });
-  
-  urlProcessingQueue.on('waiting', (jobId) => {
-    console.log('Job waiting in URL queue:', jobId);
-  });
-  urlProcessingQueue.on('active', (job, jobPromise) => {
-    console.log('Job active in URL queue:', job.id);
-  });
-  urlProcessingQueue.on('completed', (job, result) => {
-    console.log('Job completed in URL queue:', job.id);
-  });
-  urlProcessingQueue.on('failed', (job, err) => {
-    console.error('Job failed in URL queue:', job.id, err);
-  });
-  urlProcessingQueue.on('ready', () => {
-    console.log('URL processing queue is ready and listening for jobs');
-  });
-  urlProcessingQueue.on('stalled', (jobId) => {
-    console.log('Job stalled in URL queue:', jobId);
-  });
-  
-  // Check for existing jobs
-  urlProcessingQueue.getWaiting().then((waitingJobs) => {
-    return urlProcessingQueue!.getActive().then((activeJobs) => {
-      console.log(`Found ${waitingJobs.length} waiting jobs and ${activeJobs.length} active jobs`);
+  urlProcessingWorker = new Worker<ProcessUrlJob>(
+    'url-processing',
+    async (job: Job<ProcessUrlJob>) => {
+      console.log(`=== PROCESSING JOB STARTED ===`);
+      console.log(`Job ID: ${job.id}`);
+      console.log(`Job data:`, job.data);
       
-      if (waitingJobs.length > 0) {
-        console.log('Waiting jobs:', waitingJobs.map(job => ({ id: job.id, data: job.data })));
+      const { userId, urlId, url } = job.data;
+      
+      try {
+        // Update progress
+        await job.updateProgress(10);
+        console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
         
-        // Note: Jobs are waiting but not being processed automatically
-        console.log('Jobs are waiting but not being processed. This might indicate a queue configuration issue.');
+        // Fetch URL content using Jina for markdown conversion
+        await job.updateProgress(20);
+        console.log(`Fetching content for URL: ${url}`);
+        const content = await fetchUrlContent(url);
+        
+        // Save content to database
+        await job.updateProgress(50);
+        console.log(`Saving content to database for urlId: ${urlId}`);
+        const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
+        
+        if (!updatedUrl) {
+          throw new Error(`Failed to update URL content - URL not found or access denied`);
+        }
+        
+        console.log(`Content saved successfully. Content length: ${content.length} characters`);
+        
+        // Analyze content with AI
+        await job.updateProgress(75);
+        console.log(`Starting AI analysis for urlId: ${urlId}`);
+        const analysis = await analyzeContent(content);
+        
+        // Store analysis results
+        await job.updateProgress(90);
+        console.log(`Saving analysis to database for urlId: ${urlId}`);
+        const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
+        
+        if (!urlWithAnalysis) {
+          throw new Error(`Failed to update URL analysis - URL not found or access denied`);
+        }
+        
+        await job.updateProgress(100);
+        console.log(`URL processing completed successfully for ${url}`);
+        console.log(`=== PROCESSING JOB COMPLETED ===`);
+        
+        return { success: true, content, analysis };
+      } catch (error) {
+        console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
+        console.log(`=== PROCESSING JOB FAILED ===`);
+        throw error;
       }
-    });
-  }).catch((error) => {
-    console.error('Error checking existing jobs:', error);
-  });
-  
-  // Set up processors for both job types (with and without explicit job type)
-  urlProcessingQueue.process(JOB_TYPES.URL_PROCESSING, 1, async (job) => {
-    console.log(`=== PROCESSING JOB STARTED (with type) ===`);
-    console.log(`Job ID: ${job.id}`);
-    console.log(`Job data:`, job.data);
-    
-    const { userId, urlId, url } = job.data;
-    
-    try {
-      console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
-      
-      // Fetch URL content using Jina for markdown conversion
-      console.log(`Fetching content for URL: ${url}`);
-      const content = await fetchUrlContent(url);
-      
-      // Save content to database
-      console.log(`Saving content to database for urlId: ${urlId}`);
-      const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
-      
-      if (!updatedUrl) {
-        throw new Error(`Failed to update URL content - URL not found or access denied`);
-      }
-      
-      console.log(`Content saved successfully. Content length: ${content.length} characters`);
-      
-      // Analyze content with AI
-      console.log(`Starting AI analysis for urlId: ${urlId}`);
-      const analysis = await analyzeContent(content);
-      
-      // Store analysis results
-      console.log(`Saving analysis to database for urlId: ${urlId}`);
-      const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
-      
-      if (!urlWithAnalysis) {
-        throw new Error(`Failed to update URL analysis - URL not found or access denied`);
-      }
-      
-      console.log(`URL processing completed successfully for ${url}`);
-      console.log(`=== PROCESSING JOB COMPLETED ===`);
-      return { success: true, content, analysis };
-    } catch (error) {
-      console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
-      console.log(`=== PROCESSING JOB FAILED ===`);
-      throw error;
+    },
+    {
+      autorun: true,
+      concurrency: 1,
     }
+  );
+  
+  // Set up worker event listeners
+  urlProcessingWorker.on('completed', (job: Job<ProcessUrlJob>, result: any) => {
+    console.log(`Job ${job.id} completed successfully:`, result);
   });
   
-  // Also set up a processor for jobs without explicit type (for backward compatibility)
-  urlProcessingQueue.process(async (job) => {
-    console.log(`=== PROCESSING JOB STARTED (without type) ===`);
-    console.log(`Job ID: ${job.id}`);
-    console.log(`Job data:`, job.data);
-    
-    const { userId, urlId, url } = job.data;
-    
-    try {
-      console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
-      
-      // Fetch URL content using Jina for markdown conversion
-      console.log(`Fetching content for URL: ${url}`);
-      const content = await fetchUrlContent(url);
-      
-      // Save content to database
-      console.log(`Saving content to database for urlId: ${urlId}`);
-      const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
-      
-      if (!updatedUrl) {
-        throw new Error(`Failed to update URL content - URL not found or access denied`);
-      }
-      
-      console.log(`Content saved successfully. Content length: ${content.length} characters`);
-      
-      // Analyze content with AI
-      console.log(`Starting AI analysis for urlId: ${urlId}`);
-      const analysis = await analyzeContent(content);
-      
-      // Store analysis results
-      console.log(`Saving analysis to database for urlId: ${urlId}`);
-      const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
-      
-      if (!urlWithAnalysis) {
-        throw new Error(`Failed to update URL analysis - URL not found or access denied`);
-      }
-      
-      console.log(`URL processing completed successfully for ${url}`);
-      console.log(`=== PROCESSING JOB COMPLETED ===`);
-      return { success: true, content, analysis };
-    } catch (error) {
-      console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
-      console.log(`=== PROCESSING JOB FAILED ===`);
-      throw error;
-    }
+  urlProcessingWorker.on('failed', (job: Job<ProcessUrlJob> | undefined, error: Error) => {
+    console.error(`Job ${job?.id || 'unknown'} failed:`, error);
   });
   
-  console.log('URL processing worker registered successfully');
+  urlProcessingWorker.on('progress', (job: Job<ProcessUrlJob>, progress: number | object) => {
+    console.log(`Job ${job.id} progress:`, progress);
+  });
+  
+  urlProcessingWorker.on('error', (error: Error) => {
+    console.error('URL processing worker error:', error);
+  });
+  
+  urlProcessingWorker.on('ready', () => {
+    console.log('URL processing worker is ready and listening for jobs');
+  });
+  
+  console.log('URL processing worker created successfully');
 } else {
-  console.log('URL processing queue not initialized (no Redis).');
+  console.log('URL processing worker not created (no queue available)');
 }
 
+// Create content analysis worker
+let contentAnalysisWorker: Worker<AnalyzeContentJob> | null = null;
+
 if (contentAnalysisQueue) {
-  console.log('Content analysis queue initialized.');
-  contentAnalysisQueue.on('waiting', (jobId) => {
-    console.log('Job waiting in content analysis queue:', jobId);
-  });
-  contentAnalysisQueue.on('active', (job, jobPromise) => {
-    console.log('Job active in content analysis queue:', job.id);
-  });
-  contentAnalysisQueue.on('completed', (job, result) => {
-    console.log('Job completed in content analysis queue:', job.id);
-  });
-  contentAnalysisQueue.on('failed', (job, err) => {
-    console.error('Job failed in content analysis queue:', job.id, err);
-  });
-  contentAnalysisQueue.process(async (job) => {
-    const { userId, content, type } = job.data;
-    
-    try {
-      console.log(`Analyzing content for user ${userId}, type: ${type}`);
+  console.log('Creating content analysis worker...');
+  
+  contentAnalysisWorker = new Worker<AnalyzeContentJob>(
+    'content-analysis',
+    async (job: Job<AnalyzeContentJob>) => {
+      console.log(`=== CONTENT ANALYSIS JOB STARTED ===`);
+      console.log(`Job ID: ${job.id}`);
+      console.log(`Job data:`, job.data);
       
-      const analysis = await analyzeContent(content);
+      const { userId, content, type } = job.data;
       
-      // Store analysis results based on type
-      switch (type) {
-        case 'url':
-          // Handle URL analysis storage
-          break;
-        case 'chat':
-          // Handle chat analysis storage
-          break;
-        case 'question':
-          // Handle question analysis storage
-          break;
+      try {
+        await job.updateProgress(25);
+        console.log(`Analyzing content for user ${userId}, type: ${type}`);
+        
+        const analysis = await analyzeContent(content);
+        
+        await job.updateProgress(75);
+        
+        // Store analysis results based on type
+        switch (type) {
+          case 'url':
+            // Handle URL analysis storage
+            break;
+          case 'chat':
+            // Handle chat analysis storage
+            break;
+          case 'question':
+            // Handle question analysis storage
+            break;
+        }
+        
+        await job.updateProgress(100);
+        console.log(`Content analysis completed for user ${userId}`);
+        console.log(`=== CONTENT ANALYSIS JOB COMPLETED ===`);
+        
+        return { success: true, analysis };
+      } catch (error) {
+        console.error(`Content analysis failed for user ${userId}:`, error);
+        console.log(`=== CONTENT ANALYSIS JOB FAILED ===`);
+        throw error;
       }
-      
-      console.log(`Content analysis completed for user ${userId}`);
-      return { success: true, analysis };
-    } catch (error) {
-      console.error(`Content analysis failed for user ${userId}:`, error);
-      throw error;
+    },
+    {
+      autorun: true,
+      concurrency: 1,
     }
+  );
+  
+  // Set up worker event listeners
+  contentAnalysisWorker.on('completed', (job: Job<AnalyzeContentJob>, result: any) => {
+    console.log(`Content analysis job ${job.id} completed successfully:`, result);
   });
+  
+  contentAnalysisWorker.on('failed', (job: Job<AnalyzeContentJob> | undefined, error: Error) => {
+    console.error(`Content analysis job ${job?.id || 'unknown'} failed:`, error);
+  });
+  
+  contentAnalysisWorker.on('progress', (job: Job<AnalyzeContentJob>, progress: number | object) => {
+    console.log(`Content analysis job ${job.id} progress:`, progress);
+  });
+  
+  contentAnalysisWorker.on('error', (error: Error) => {
+    console.error('Content analysis worker error:', error);
+  });
+  
+  contentAnalysisWorker.on('ready', () => {
+    console.log('Content analysis worker is ready and listening for jobs');
+  });
+  
+  console.log('Content analysis worker created successfully');
 } else {
-  console.log('Content analysis queue not initialized (no Redis).');
+  console.log('Content analysis worker not created (no queue available)');
 }
 
 // Helper function to fetch URL content
@@ -269,22 +250,19 @@ async function analyzeContent(content: string): Promise<any> {
   }
 }
 
-// Error handling
-if (urlProcessingQueue) {
-  urlProcessingQueue.on('error', (error) => {
-    console.error('URL processing queue error:', error);
-  });
-}
-
-if (contentAnalysisQueue) {
-  contentAnalysisQueue.on('error', (error) => {
-    console.error('Content analysis queue error:', error);
-  });
-}
-
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  if (urlProcessingQueue) await urlProcessingQueue.close();
-  if (contentAnalysisQueue) await contentAnalysisQueue.close();
+  console.log('Shutting down workers...');
+  if (urlProcessingWorker) await urlProcessingWorker.close();
+  if (contentAnalysisWorker) await contentAnalysisWorker.close();
   process.exit(0);
-}); 
+});
+
+process.on('SIGINT', async () => {
+  console.log('Shutting down workers...');
+  if (urlProcessingWorker) await urlProcessingWorker.close();
+  if (contentAnalysisWorker) await contentAnalysisWorker.close();
+  process.exit(0);
+});
+
+export { urlProcessingWorker, contentAnalysisWorker }; 
