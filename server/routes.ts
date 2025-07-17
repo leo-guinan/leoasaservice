@@ -4,15 +4,50 @@ import { storage } from "./storage";
 import { insertUrlSchema, insertChatMessageSchema, insertLeoQuestionSchema } from "@shared/schema";
 import OpenAI from "openai";
 import { authenticateToken, registerUser, loginUser, type AuthRequest } from "./auth";
-import { urlProcessingQueue, contentAnalysisQueue } from "./worker";
 import { getDb } from "./db";
 import { sql } from "drizzle-orm";
 import Redis from "ioredis";
+import Queue from 'bull';
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "your-api-key-here" 
 });
+
+// Create queue directly in routes to ensure consistent Redis configuration
+let urlProcessingQueue: Queue.Queue | null = null;
+
+if (process.env.REDIS_URL) {
+  console.log("Creating URL processing queue in routes with Redis URL:", process.env.REDIS_URL);
+  urlProcessingQueue = new Queue('url-processing', process.env.REDIS_URL, {
+    defaultJobOptions: {
+      removeOnComplete: 10,
+      removeOnFail: 5,
+    }
+  });
+  
+  urlProcessingQueue.on('error', (error) => {
+    console.error('URL processing queue error in routes:', error);
+  });
+  
+  urlProcessingQueue.on('waiting', (jobId) => {
+    console.log('Job waiting in URL queue (routes):', jobId);
+  });
+  
+  urlProcessingQueue.on('active', (job) => {
+    console.log('Job active in URL queue (routes):', job.id);
+  });
+  
+  urlProcessingQueue.on('completed', (job, result) => {
+    console.log('Job completed in URL queue (routes):', job.id);
+  });
+  
+  urlProcessingQueue.on('failed', (job, err) => {
+    console.error('Job failed in URL queue (routes):', job.id, err);
+  });
+} else {
+  console.log("Redis not configured, URL processing queue not created");
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check route - must be before any catch-all routes

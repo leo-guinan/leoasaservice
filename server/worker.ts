@@ -73,16 +73,14 @@ console.log("Creating queues...");
 console.log("Redis available:", redis ? "yes" : "no");
 console.log("Using Redis URL for queues:", process.env.REDIS_URL);
 
-export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
-  redis: process.env.REDIS_URL,
+export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', process.env.REDIS_URL!, {
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
   }
 }) : null;
 
-export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
-  redis: process.env.REDIS_URL,
+export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', process.env.REDIS_URL!, {
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
