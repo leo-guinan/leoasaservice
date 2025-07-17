@@ -49,6 +49,104 @@ if (process.env.REDIS_URL) {
   console.log("Redis not configured, URL processing queue not created");
 }
 
+// Helper function to process URLs synchronously (temporary fallback)
+async function processUrlSynchronously(urlId: number, userId: number, url: string) {
+  try {
+    console.log(`Processing URL synchronously: ${url} for user ${userId}, urlId: ${urlId}`);
+    
+    // Fetch URL content using Jina for markdown conversion
+    console.log(`Fetching content for URL: ${url}`);
+    const content = await fetchUrlContent(url);
+    
+    // Save content to database
+    console.log(`Saving content to database for urlId: ${urlId}`);
+    const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
+    
+    if (!updatedUrl) {
+      throw new Error(`Failed to update URL content - URL not found or access denied`);
+    }
+    
+    console.log(`Content saved successfully. Content length: ${content.length} characters`);
+    
+    // Analyze content with AI
+    console.log(`Starting AI analysis for urlId: ${urlId}`);
+    const analysis = await analyzeContent(content);
+    
+    // Store analysis results
+    console.log(`Saving analysis to database for urlId: ${urlId}`);
+    const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
+    
+    if (!urlWithAnalysis) {
+      throw new Error(`Failed to update URL analysis - URL not found or access denied`);
+    }
+    
+    console.log(`URL processing completed successfully for ${url}`);
+    return { success: true, content, analysis };
+  } catch (error) {
+    console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
+    throw error;
+  }
+}
+
+// Helper function to fetch URL content
+async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    // Ensure URL is properly encoded for Jina
+    const encodedUrl = encodeURIComponent(url);
+    const jinaUrl = `https://r.jina.ai/${encodedUrl}`;
+    
+    console.log(`Fetching content from Jina: ${jinaUrl}`);
+    
+    const response = await fetch(jinaUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Jina API returned ${response.status}: ${response.statusText}`);
+    }
+    
+    const markdown = await response.text();
+    
+    if (!markdown || markdown.trim().length === 0) {
+      throw new Error('Empty content received from Jina');
+    }
+    
+    console.log(`Successfully fetched ${markdown.length} characters from ${url}`);
+    
+    // Return the markdown content directly
+    return markdown.trim();
+  } catch (error) {
+    console.error(`Failed to fetch URL content: ${url}`, error);
+    throw new Error(`Failed to fetch URL content: ${error}`);
+  }
+}
+
+// Helper function to analyze content with AI
+async function analyzeContent(content: string): Promise<any> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "Analyze the following content and provide a structured summary including key topics, main points, and relevance for research purposes."
+        },
+        {
+          role: "user",
+          content: content.substring(0, 4000) // Limit content length
+        }
+      ],
+    });
+
+    return {
+      summary: response.choices[0].message.content,
+      timestamp: new Date().toISOString(),
+      model: "gpt-4o"
+    };
+  } catch (error) {
+    console.error('AI analysis failed:', error);
+    throw new Error(`AI analysis failed: ${error}`);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check route - must be before any catch-all routes
   app.get("/api/health", async (req, res) => {
@@ -215,7 +313,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             stack: queueError instanceof Error ? queueError.stack : undefined,
             name: queueError instanceof Error ? queueError.name : 'Unknown'
           });
-          // Don't fail the request, just log the error
+          
+          // TEMPORARY: Process URL synchronously if queue fails
+          console.log("Processing URL synchronously as fallback...");
+          try {
+            await processUrlSynchronously(url.id, req.user!.id, url.url);
+            console.log("URL processed synchronously successfully");
+          } catch (syncError) {
+            console.error("Synchronous processing also failed:", syncError);
+          }
         }
       } else {
         console.log("URL processing queue not available (Redis not configured)");
