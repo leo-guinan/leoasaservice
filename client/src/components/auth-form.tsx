@@ -58,7 +58,7 @@ export default function AuthForm({ onAuthSuccess }: AuthFormProps) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Research Buddy</CardTitle>
+          <CardTitle className="text-2xl font-bold">Leo As A Service</CardTitle>
           <CardDescription>
             Sign in to your account or create a new one
           </CardDescription>

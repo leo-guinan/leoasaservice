@@ -8,6 +8,8 @@ import { getDb } from "./db";
 import { sql } from "drizzle-orm";
 import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
 import { testRedisConnection } from "@shared/redis";
+import { upload, uploadFileToS3, isS3Configured } from "./s3";
+import pdf from "pdf-parse";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -465,6 +467,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Chat history cleared" });
     } catch (error) {
       res.status(500).json({ message: "Failed to clear chat history" });
+    }
+  });
+
+  // PDF upload route
+  app.post("/api/upload/pdf", authenticateToken, upload.single("pdf"), async (req: AuthRequest, res) => {
+    try {
+      if (!isS3Configured()) {
+        return res.status(500).json({ message: "S3 not configured" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No PDF file uploaded" });
+      }
+
+      const file = req.file as Express.MulterS3.File;
+      const fileName = file.originalname || "uploaded-document.pdf";
+      
+      console.log(`PDF uploaded: ${fileName} to S3 key: ${file.key}`);
+
+      // Extract text from PDF
+      let pdfText = "";
+      try {
+        const pdfBuffer = file.buffer;
+        const pdfData = await pdf(pdfBuffer);
+        pdfText = pdfData.text;
+        console.log(`Extracted ${pdfText.length} characters from PDF`);
+      } catch (pdfError) {
+        console.error("PDF parsing failed:", pdfError);
+        return res.status(400).json({ message: "Failed to parse PDF content" });
+      }
+
+      // Create URL entry with S3 URL
+      const urlData = {
+        url: file.location, // S3 URL
+        title: fileName,
+        notes: `PDF upload: ${fileName}`,
+      };
+
+      const url = await storage.createUrl(req.user!.id, urlData);
+      console.log("URL created for PDF:", url);
+
+      // Save PDF content to database
+      const updatedUrl = await storage.updateUrlContent(url.id, req.user!.id, pdfText);
+      
+      if (!updatedUrl) {
+        throw new Error("Failed to save PDF content");
+      }
+
+      // Analyze PDF content with AI
+      const analysis = await analyzeContent(pdfText);
+      
+      // Store analysis results
+      const urlWithAnalysis = await storage.updateUrlAnalysis(url.id, req.user!.id, analysis);
+      
+      if (!urlWithAnalysis) {
+        throw new Error("Failed to save PDF analysis");
+      }
+
+      // Add to processing queue for background processing (if available)
+      if (urlProcessingQueue) {
+        try {
+          await addUrlProcessingJob(urlProcessingQueue, {
+            userId: req.user!.id,
+            urlId: url.id,
+            url: file.location
+          });
+          console.log("PDF processing added to queue");
+        } catch (queueError) {
+          console.error("Failed to add PDF to processing queue:", queueError);
+        }
+      }
+
+      res.json({
+        success: true,
+        url: urlWithAnalysis,
+        message: "PDF uploaded and processed successfully",
+        extractedTextLength: pdfText.length
+      });
+    } catch (error) {
+      console.error("PDF upload error:", error);
+      res.status(500).json({ message: "Failed to upload PDF" });
     }
   });
 
