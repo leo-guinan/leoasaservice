@@ -33,7 +33,7 @@ export default function AiChat() {
     mutationFn: async (content: string) => {
       const response = await fetch("/api/chat/messages", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
@@ -83,7 +83,7 @@ export default function AiChat() {
     const now = new Date();
     const messageTime = new Date(date);
     const diffInMinutes = Math.floor((now.getTime() - messageTime.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? "s" : ""} ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hour${Math.floor(diffInMinutes / 60) > 1 ? "s" : ""} ago`;
@@ -121,7 +121,7 @@ export default function AiChat() {
           </div>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex items-start gap-3">
@@ -141,43 +141,42 @@ export default function AiChat() {
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex items-start gap-3 ${
-                msg.role === "user" ? "flex-row-reverse" : ""
-              }`}
+              className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""
+                }`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                msg.role === "user" 
-                  ? "bg-slate-300" 
-                  : "bg-blue-600"
-              }`}>
-                {msg.role === "user" ? (
-                  <User className="text-slate-600" size={16} />
-                ) : (
-                  <Bot className="text-white" size={16} />
-                )}
-              </div>
-              <div className="flex-1">
-                <div className={`rounded-lg p-3 max-w-md ${
-                  msg.role === "user" 
-                    ? "bg-blue-600 text-white ml-auto" 
-                    : "bg-slate-100"
-                }`}>
-                  <p className={`text-sm ${
-                    msg.role === "user" ? "text-white" : "text-slate-800"
+              {msg.content && (<>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === "user"
+                    ? "bg-slate-300"
+                    : "bg-blue-600"
                   }`}>
-                    {msg.content}
-                  </p>
+                  {msg.role === "user" ? (
+                    <User className="text-slate-600" size={16} />
+                  ) : (
+                    <Bot className="text-white" size={16} />
+                  )}
                 </div>
-                <div className={`text-xs text-slate-500 mt-1 ${
-                  msg.role === "user" ? "text-right" : ""
-                }`}>
-                  {formatTimestamp(msg.createdAt)}
+                <div className="flex-1">
+                  <div className={`rounded-lg p-3 max-w-md ${msg.role === "user"
+                      ? "bg-blue-600 text-white ml-auto"
+                      : "bg-slate-100"
+                    }`}>
+                    <p className={`text-sm ${msg.role === "user" ? "text-white" : "text-slate-800"
+                      }`}>
+                      {msg.content}
+                    </p>
+                  </div>
+                  <div className={`text-xs text-slate-500 mt-1 ${msg.role === "user" ? "text-right" : ""
+                    }`}>
+                    {formatTimestamp(msg.createdAt)}
+                  </div>
                 </div>
-              </div>
+              </>
+              )}
             </div>
+
           ))
         )}
-        
+
         {sendMessageMutation.isPending && (
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -194,10 +193,10 @@ export default function AiChat() {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
-      
+
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center gap-3">
           <div className="flex-1">

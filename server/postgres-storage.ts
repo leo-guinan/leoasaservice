@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { getDb } from "./db";
 import { users, urls, chatMessages, leoQuestions, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -58,7 +58,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async getChatMessages(userId: number): Promise<ChatMessage[]> {
-    return await getDb().select().from(chatMessages).where(eq(chatMessages.userId, userId)).orderBy(desc(chatMessages.createdAt));
+    return await getDb().select().from(chatMessages).where(eq(chatMessages.userId, userId)).orderBy(asc(chatMessages.createdAt));
   }
 
   async createChatMessage(userId: number, insertMessage: InsertChatMessage): Promise<ChatMessage> {
