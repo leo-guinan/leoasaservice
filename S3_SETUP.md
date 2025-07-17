@@ -35,43 +35,41 @@ AWS_S3_BUCKET=your-s3-bucket-name
 
 1. **Upload**: Users can upload PDF files using the file icon button in the chat
 2. **Processing**: PDFs are uploaded to S3 and stored with metadata
-3. **Text Extraction**: Currently uses a placeholder. For production, consider:
-   - AWS Textract for OCR and text extraction
-   - Google Cloud Vision API
-   - Azure Computer Vision
-   - Or integrate with a different PDF parsing service
+3. **Text Extraction**: 
+   - PDF pages are converted to images using Puppeteer
+   - Each page image is sent to GPT-4o vision API for text extraction
+   - Text is extracted with high accuracy using AI vision capabilities
 4. **Analysis**: The extracted text is analyzed using AI (same as URLs)
 5. **Integration**: The PDF appears in the URL list with its S3 URL
 6. **Chat**: Users can ask questions about the uploaded PDF content
 
-## Text Extraction Options
+## Text Extraction Implementation
 
-For production use, consider these alternatives to extract text from PDFs:
+The current implementation uses a sophisticated approach:
 
-### AWS Textract (Recommended)
-```javascript
-import { TextractClient, DetectDocumentTextCommand } from "@aws-sdk/client-textract";
+### PDF to Image Conversion
+- Uses Puppeteer to render PDF pages as images
+- High-resolution output (1200x1600) for better OCR accuracy
+- Handles multi-page PDFs automatically
 
-const textract = new TextractClient({ region: "us-east-1" });
-const command = new DetectDocumentTextCommand({
-  Document: { Bytes: pdfBuffer }
-});
-const result = await textract.send(command);
-const text = result.Blocks?.map(block => block.Text).join(" ") || "";
-```
+### AI-Powered Text Extraction
+- Each page image is sent to GPT-4o vision API
+- Uses specialized OCR prompt for accurate text extraction
+- Maintains original formatting and structure
+- Handles complex layouts, tables, and mixed content
 
-### Google Cloud Vision API
-```javascript
-import vision from '@google-cloud/vision';
-const client = new vision.ImageAnnotatorClient();
-// Implementation for PDF text extraction
-```
+### Benefits of This Approach
+- **High Accuracy**: GPT-4o vision is excellent at text extraction
+- **Format Preservation**: Maintains original document structure
+- **Multi-language Support**: Works with various languages
+- **Complex Layouts**: Handles tables, columns, and mixed content
+- **No External Dependencies**: Uses existing OpenAI integration
 
-### Azure Computer Vision
-```javascript
-import { ComputerVisionClient } from '@azure/cognitiveservices-computervision';
-// Implementation for PDF text extraction
-```
+### Alternative Options (if needed)
+- AWS Textract for AWS-native solutions
+- Google Cloud Vision API
+- Azure Computer Vision
+- Specialized PDF parsing libraries
 
 ## File Limits
 

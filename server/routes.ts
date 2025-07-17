@@ -9,15 +9,140 @@ import { sql } from "drizzle-orm";
 import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
 import { testRedisConnection } from "@shared/redis";
 import { upload, uploadFileToS3, isS3Configured } from "./s3";
+import puppeteer, { Browser } from "puppeteer";
+import sharp from "sharp";
 
-// Simple PDF text extraction placeholder
+// Convert PDF pages to images and extract text using GPT-4o vision
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  // For now, return a placeholder. In production, you might want to use:
-  // - AWS Textract
-  // - Google Cloud Vision API
-  // - Azure Computer Vision
-  // - Or a different PDF parsing library
-  return `PDF content extracted from ${buffer.length} bytes. Text extraction will be implemented with a cloud service.`;
+  let browser: Browser | null = null;
+  
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const os = await import("os");
+    
+    const tempDir = os.tmpdir();
+    const tempPdfPath = path.join(tempDir, `temp-${Date.now()}.pdf`);
+    const tempImageDir = path.join(tempDir, `images-${Date.now()}`);
+    
+    // Create temp directories
+    await fs.mkdir(tempImageDir, { recursive: true });
+    
+    // Write PDF buffer to temp file
+    await fs.writeFile(tempPdfPath, buffer);
+    
+    console.log(`Converting PDF to images: ${tempPdfPath}`);
+    
+    // Launch browser
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    
+    // Set viewport for consistent image size
+    await page.setViewport({ width: 1200, height: 1600 });
+    
+    // Load PDF and get page count
+    await page.goto(`file://${tempPdfPath}`);
+    
+    // Get total pages
+    const pageCount = await page.evaluate(() => {
+      const pdfViewer = document.querySelector('embed[type="application/pdf"]');
+      if (pdfViewer) {
+        return (pdfViewer as any).contentWindow?.PDFViewerApplication?.pagesCount || 1;
+      }
+      return 1;
+    });
+    
+    console.log(`PDF has ${pageCount} pages`);
+    
+    // Convert each page to image
+    const extractedTexts: string[] = [];
+    
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      console.log(`Processing page ${pageNum}/${pageCount}`);
+      
+      try {
+        // Navigate to specific page
+        await page.goto(`file://${tempPdfPath}#page=${pageNum}`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for page to load
+        
+        // Take screenshot
+        const screenshot = await page.screenshot({
+          type: 'png',
+          fullPage: true
+        });
+        
+        // Optimize image
+        const optimizedBuffer = await sharp(screenshot)
+          .resize(1200, 1600, { fit: 'inside', withoutEnlargement: true })
+          .png({ quality: 90 })
+          .toBuffer();
+        
+        // Convert to base64 for OpenAI API
+        const base64Image = optimizedBuffer.toString('base64');
+        
+        // Use GPT-4o vision to extract text
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an OCR assistant. Extract all text from the provided image. Return only the extracted text, maintaining the original formatting and structure. Do not add any commentary or explanations."
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Extract all text from this image:"
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/png;base64,${base64Image}`
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 4000,
+        });
+        
+        const pageText = response.choices[0].message.content || "";
+        extractedTexts.push(`--- Page ${pageNum} ---\n${pageText}\n`);
+        
+        console.log(`Extracted ${pageText.length} characters from page ${pageNum}`);
+        
+      } catch (pageError) {
+        console.error(`Error processing page ${pageNum}:`, pageError);
+        extractedTexts.push(`--- Page ${pageNum} ---\n[Error extracting text from this page]\n`);
+      }
+    }
+    
+    // Clean up temp files
+    try {
+      await fs.unlink(tempPdfPath);
+      await fs.rmdir(tempImageDir, { recursive: true });
+    } catch (cleanupError) {
+      console.warn("Error cleaning up temp files:", cleanupError);
+    }
+    
+    const fullText = extractedTexts.join('\n');
+    console.log(`Total extracted text length: ${fullText.length} characters`);
+    
+    return fullText;
+    
+  } catch (error) {
+    console.error("PDF to image conversion failed:", error);
+    throw new Error(`Failed to extract text from PDF: ${error}`);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 }
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
