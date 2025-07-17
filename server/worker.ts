@@ -73,17 +73,54 @@ console.log("Creating queues...");
 console.log("Redis available:", redis ? "yes" : "no");
 console.log("Using Redis URL for queues:", process.env.REDIS_URL);
 
-export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', process.env.REDIS_URL!, {
+// Parse Redis URL to get connection details
+const redisUrl = new URL(process.env.REDIS_URL!);
+
+export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
+  redis: {
+    host: redisUrl.hostname,
+    port: parseInt(redisUrl.port),
+    password: redisUrl.password,
+    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
+  },
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+  },
+  settings: {
+    stalledInterval: 30000,
+    maxStalledCount: 1,
   }
 }) : null;
 
-export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', process.env.REDIS_URL!, {
+export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('content-analysis', {
+  redis: {
+    host: redisUrl.hostname,
+    port: parseInt(redisUrl.port),
+    password: redisUrl.password,
+    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
+  },
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 5,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+  },
+  settings: {
+    stalledInterval: 30000,
+    maxStalledCount: 1,
   }
 }) : null;
 

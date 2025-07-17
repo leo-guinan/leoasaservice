@@ -19,10 +19,31 @@ let urlProcessingQueue: Queue.Queue | null = null;
 
 if (process.env.REDIS_URL) {
   console.log("Creating URL processing queue in routes with Redis URL:", process.env.REDIS_URL);
-  urlProcessingQueue = new Queue('url-processing', process.env.REDIS_URL, {
+  
+  // Parse Redis URL to get connection details
+  const redisUrl = new URL(process.env.REDIS_URL);
+  
+  urlProcessingQueue = new Queue('url-processing', {
+    redis: {
+      host: redisUrl.hostname,
+      port: parseInt(redisUrl.port),
+      password: redisUrl.password,
+      tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    },
     defaultJobOptions: {
       removeOnComplete: 10,
       removeOnFail: 5,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+    },
+    settings: {
+      stalledInterval: 30000,
+      maxStalledCount: 1,
     }
   });
   
@@ -44,6 +65,15 @@ if (process.env.REDIS_URL) {
   
   urlProcessingQueue.on('failed', (job, err) => {
     console.error('Job failed in URL queue (routes):', job.id, err);
+  });
+  
+  // Test queue connection
+  urlProcessingQueue.on('ready', () => {
+    console.log('URL processing queue is ready');
+  });
+  
+  urlProcessingQueue.on('stalled', (jobId) => {
+    console.log('Job stalled in URL queue (routes):', jobId);
   });
 } else {
   console.log("Redis not configured, URL processing queue not created");
