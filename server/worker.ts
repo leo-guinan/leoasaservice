@@ -174,9 +174,56 @@ if (urlProcessingQueue) {
     console.error('Error checking existing jobs:', error);
   });
   
-  // Set up the processor with explicit concurrency
+  // Set up processors for both job types (with and without explicit job type)
   urlProcessingQueue.process('url-processing', 1, async (job) => {
-    console.log(`=== PROCESSING JOB STARTED ===`);
+    console.log(`=== PROCESSING JOB STARTED (with type) ===`);
+    console.log(`Job ID: ${job.id}`);
+    console.log(`Job data:`, job.data);
+    
+    const { userId, urlId, url } = job.data;
+    
+    try {
+      console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
+      
+      // Fetch URL content using Jina for markdown conversion
+      console.log(`Fetching content for URL: ${url}`);
+      const content = await fetchUrlContent(url);
+      
+      // Save content to database
+      console.log(`Saving content to database for urlId: ${urlId}`);
+      const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
+      
+      if (!updatedUrl) {
+        throw new Error(`Failed to update URL content - URL not found or access denied`);
+      }
+      
+      console.log(`Content saved successfully. Content length: ${content.length} characters`);
+      
+      // Analyze content with AI
+      console.log(`Starting AI analysis for urlId: ${urlId}`);
+      const analysis = await analyzeContent(content);
+      
+      // Store analysis results
+      console.log(`Saving analysis to database for urlId: ${urlId}`);
+      const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
+      
+      if (!urlWithAnalysis) {
+        throw new Error(`Failed to update URL analysis - URL not found or access denied`);
+      }
+      
+      console.log(`URL processing completed successfully for ${url}`);
+      console.log(`=== PROCESSING JOB COMPLETED ===`);
+      return { success: true, content, analysis };
+    } catch (error) {
+      console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
+      console.log(`=== PROCESSING JOB FAILED ===`);
+      throw error;
+    }
+  });
+  
+  // Also set up a processor for jobs without explicit type (for backward compatibility)
+  urlProcessingQueue.process(async (job) => {
+    console.log(`=== PROCESSING JOB STARTED (without type) ===`);
     console.log(`Job ID: ${job.id}`);
     console.log(`Job data:`, job.data);
     
