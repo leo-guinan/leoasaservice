@@ -17,6 +17,7 @@
     "db:migrate:prod": "./scripts/migrate-prod.sh",
     "db:force-migrate": "./scripts/force-migrate.sh",
     "db:reset": "tsx server/reset-db.ts",
+    "db:reset:drop": "tsx server/reset-db.ts --drop",
     "db:check": "node scripts/check-db.js",
     "db:test-connection": "node scripts/test-db-connection.js",
     "db:studio": "drizzle-kit studio"
