@@ -139,13 +139,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const urlData = insertUrlSchema.parse(cleanedData);
       const url = await storage.createUrl(req.user!.id, urlData);
       
+      console.log("URL created successfully:", url);
+      
       // Queue background processing (if Redis is available)
       if (urlProcessingQueue) {
-        await urlProcessingQueue.add({
-          userId: req.user!.id,
-          urlId: url.id,
-          url: url.url
-        });
+        console.log("Adding URL to processing queue...");
+        try {
+          const job = await urlProcessingQueue.add({
+            userId: req.user!.id,
+            urlId: url.id,
+            url: url.url
+          });
+          console.log("URL added to queue successfully, job ID:", job.id);
+        } catch (queueError) {
+          console.error("Failed to add URL to queue:", queueError);
+          // Don't fail the request, just log the error
+        }
+      } else {
+        console.log("URL processing queue not available (Redis not configured)");
       }
       
       res.json(url);

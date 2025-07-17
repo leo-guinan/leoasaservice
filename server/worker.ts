@@ -3,6 +3,8 @@ import Redis from 'ioredis';
 import { storage } from './storage';
 import OpenAI from 'openai';
 
+console.log('Worker module loaded. Initializing queues...');
+
 // Redis connection - only connect if REDIS_URL is provided
 let redis: Redis | null = null;
 
@@ -31,7 +33,7 @@ function initializeRedis() {
         console.log('Redis reconnecting...');
       });
       
-      console.log('Redis connected successfully');
+      console.log('Redis connection initialized');
     } catch (error) {
       console.error('Failed to connect to Redis:', error);
       redis = null;
@@ -79,8 +81,20 @@ export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('conten
   }
 }) : null;
 
-// URL processing worker
 if (urlProcessingQueue) {
+  console.log('URL processing queue initialized.');
+  urlProcessingQueue.on('waiting', (jobId) => {
+    console.log('Job waiting in URL queue:', jobId);
+  });
+  urlProcessingQueue.on('active', (job, jobPromise) => {
+    console.log('Job active in URL queue:', job.id);
+  });
+  urlProcessingQueue.on('completed', (job, result) => {
+    console.log('Job completed in URL queue:', job.id);
+  });
+  urlProcessingQueue.on('failed', (job, err) => {
+    console.error('Job failed in URL queue:', job.id, err);
+  });
   urlProcessingQueue.process(async (job) => {
     const { userId, urlId, url } = job.data;
     
@@ -120,10 +134,24 @@ if (urlProcessingQueue) {
       throw error;
     }
   });
+} else {
+  console.log('URL processing queue not initialized (no Redis).');
 }
 
-// Content analysis worker
 if (contentAnalysisQueue) {
+  console.log('Content analysis queue initialized.');
+  contentAnalysisQueue.on('waiting', (jobId) => {
+    console.log('Job waiting in content analysis queue:', jobId);
+  });
+  contentAnalysisQueue.on('active', (job, jobPromise) => {
+    console.log('Job active in content analysis queue:', job.id);
+  });
+  contentAnalysisQueue.on('completed', (job, result) => {
+    console.log('Job completed in content analysis queue:', job.id);
+  });
+  contentAnalysisQueue.on('failed', (job, err) => {
+    console.error('Job failed in content analysis queue:', job.id, err);
+  });
   contentAnalysisQueue.process(async (job) => {
     const { userId, content, type } = job.data;
     
@@ -152,6 +180,8 @@ if (contentAnalysisQueue) {
       throw error;
     }
   });
+} else {
+  console.log('Content analysis queue not initialized (no Redis).');
 }
 
 // Helper function to fetch URL content
