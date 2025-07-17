@@ -144,7 +144,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Queue background processing (if Redis is available)
       if (urlProcessingQueue) {
         console.log("Adding URL to processing queue...");
+        console.log("Queue object:", urlProcessingQueue ? "exists" : "null");
+        console.log("Redis URL:", process.env.REDIS_URL ? "configured" : "not configured");
         try {
+          console.log("About to call queue.add()...");
           const job = await urlProcessingQueue.add({
             userId: req.user!.id,
             urlId: url.id,
@@ -153,10 +156,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("URL added to queue successfully, job ID:", job.id);
         } catch (queueError) {
           console.error("Failed to add URL to queue:", queueError);
+          console.error("Queue error details:", {
+            message: queueError instanceof Error ? queueError.message : String(queueError),
+            stack: queueError instanceof Error ? queueError.stack : undefined,
+            name: queueError instanceof Error ? queueError.name : 'Unknown'
+          });
           // Don't fail the request, just log the error
         }
       } else {
         console.log("URL processing queue not available (Redis not configured)");
+        console.log("urlProcessingQueue is:", urlProcessingQueue);
+        console.log("REDIS_URL is:", process.env.REDIS_URL ? "set" : "not set");
       }
       
       res.json(url);

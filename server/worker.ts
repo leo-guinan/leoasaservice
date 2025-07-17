@@ -10,8 +10,12 @@ let redis: Redis | null = null;
 
 // Initialize Redis connection
 function initializeRedis() {
+  console.log("Initializing Redis connection...");
+  console.log("REDIS_URL:", process.env.REDIS_URL ? "configured" : "not configured");
+  
   if (process.env.REDIS_URL) {
     try {
+      console.log("Creating Redis connection with URL:", process.env.REDIS_URL);
       redis = new Redis(process.env.REDIS_URL, {
         maxRetriesPerRequest: 3,
         lazyConnect: true,
@@ -65,6 +69,9 @@ export interface AnalyzeContentJob {
 }
 
 // Create queues - only if Redis is available
+console.log("Creating queues...");
+console.log("Redis available:", redis ? "yes" : "no");
+
 export const urlProcessingQueue = redis ? new Queue<ProcessUrlJob>('url-processing', {
   redis: process.env.REDIS_URL || {
     host: process.env.REDIS_HOST || 'localhost',
@@ -80,6 +87,9 @@ export const contentAnalysisQueue = redis ? new Queue<AnalyzeContentJob>('conten
     password: process.env.REDIS_PASSWORD,
   }
 }) : null;
+
+console.log("Queues created - urlProcessingQueue:", urlProcessingQueue ? "created" : "null");
+console.log("Queues created - contentAnalysisQueue:", contentAnalysisQueue ? "created" : "null");
 
 if (urlProcessingQueue) {
   console.log('URL processing queue initialized.');
