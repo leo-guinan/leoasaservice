@@ -115,6 +115,61 @@ async function analyzeContent(content: string): Promise<any> {
   }
 }
 
+// Helper function to determine if a message contains a request
+async function detectRequest(message: string): Promise<{ isRequest: boolean; confidence: number; reasoning: string }> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `Analyze the following message and determine if it contains a request, question, or action that requires a response.
+
+A REQUEST includes:
+- Direct questions (What is...? How do I...? Can you...?)
+- Commands or instructions (Please help me..., Show me..., Find...)
+- Requests for action (I need help with..., Could you...)
+- Requests for information, analysis, or assistance
+
+An OBSERVATION includes:
+- Statements of fact (I found this interesting..., This article says...)
+- Personal notes or thoughts (I think..., This reminds me of...)
+- Declarative statements without asking for anything
+- Sharing information without expecting a response
+
+Respond with a JSON object containing:
+- "isRequest": boolean (true if it's a request, false if it's an observation)
+- "confidence": number (0-1, how confident you are in the classification)
+- "reasoning": string (brief explanation of your classification)`
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    return {
+      isRequest: result.isRequest || false,
+      confidence: result.confidence || 0,
+      reasoning: result.reasoning || "Unable to determine"
+    };
+  } catch (error) {
+    console.error('Request detection failed:', error);
+    // Fallback: assume it's a request if it contains question marks or request words
+    const hasQuestionMark = message.includes('?');
+    const hasRequestWords = /\b(can you|could you|please|help|what|how|why|when|where|show|find|get|tell|explain)\b/i.test(message);
+    
+    return {
+      isRequest: hasQuestionMark || hasRequestWords,
+      confidence: 0.5,
+      reasoning: "Fallback detection used due to AI analysis failure"
+    };
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check route - must be before any catch-all routes
   app.get("/api/health", async (req, res) => {
@@ -344,38 +399,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save user message
       const userMessage = await storage.createChatMessage(req.user!.id, messageData);
       
-      // Get AI response
-      try {
-        const chatHistory = await storage.getChatMessages(req.user!.id);
-        const messages = chatHistory.map(msg => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content
-        }));
+      // Detect if the message contains a request
+      const requestAnalysis = await detectRequest(messageData.content);
+      console.log(`Message analysis: isRequest=${requestAnalysis.isRequest}, confidence=${requestAnalysis.confidence}, reasoning="${requestAnalysis.reasoning}"`);
+      
+      let aiMessage = null;
+      
+      if (requestAnalysis.isRequest) {
+        // Generate AI response for requests
+        try {
+          const chatHistory = await storage.getChatMessages(req.user!.id);
+          const messages = chatHistory.map(msg => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content
+          }));
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful AI research assistant. Help users analyze their research materials, answer questions about their saved URLs, and assist with writing and research tasks. Be concise but thorough in your responses."
-            },
-            ...messages
-          ],
-        });
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+            messages: [
+              {
+                role: "system",
+                content: "You are a helpful AI research assistant. Help users analyze their research materials, answer questions about their saved URLs, and assist with writing and research tasks. Be concise but thorough in your responses."
+              },
+              ...messages
+            ],
+          });
 
-        const aiContent = response.choices[0].message.content || "I'm sorry, I couldn't generate a response.";
-        
-        // Save AI response
-        const aiMessage = await storage.createChatMessage(req.user!.id, {
-          content: aiContent,
+          const aiContent = response.choices[0].message.content || "I'm sorry, I couldn't generate a response.";
+          
+          // Save AI response
+          aiMessage = await storage.createChatMessage(req.user!.id, {
+            content: aiContent,
+            role: "assistant"
+          });
+        } catch (aiError) {
+          console.error("OpenAI API error:", aiError);
+          res.status(500).json({ message: "Failed to get AI response" });
+          return;
+        }
+      } else {
+        // For observations, save an acknowledgment message
+        aiMessage = await storage.createChatMessage(req.user!.id, {
+          content: "",
           role: "assistant"
         });
-
-        res.json({ userMessage, aiMessage });
-      } catch (aiError) {
-        console.error("OpenAI API error:", aiError);
-        res.status(500).json({ message: "Failed to get AI response" });
       }
+
+      res.json({ 
+        userMessage, 
+        aiMessage, 
+        requestAnalysis: {
+          isRequest: requestAnalysis.isRequest,
+          confidence: requestAnalysis.confidence,
+          reasoning: requestAnalysis.reasoning
+        }
+      });
     } catch (error) {
       res.status(400).json({ message: "Invalid message data" });
     }
