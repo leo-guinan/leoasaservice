@@ -55,10 +55,12 @@ export default function Workspace() {
       <main className="flex flex-1 overflow-hidden">
         <UrlCollector />
         <AiChat />
-        <div className="w-1/2 flex flex-col">
-          <AskLeo />
+        <div className="w-1/3 flex flex-col">
+          <div className="h-1/2">
+            <AskLeo />
+          </div>
           {/* Book a Call Section */}
-          <div className="flex-1 bg-white border-l border-slate-200 p-6">
+          <div className="h-1/2 bg-white border-l border-slate-200 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
                 <Calendar className="text-white" size={16} />
