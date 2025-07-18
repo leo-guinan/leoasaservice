@@ -1,15 +1,17 @@
-import { Brain, User, LogOut, Calendar } from "lucide-react";
+import { Brain, User, LogOut, Calendar, Settings } from "lucide-react";
 import UrlCollector from "@/components/url-collector";
 import AiChat from "@/components/ai-chat";
 import AskLeo from "@/components/ask-leo";
+import AdminDashboard from "@/components/admin-dashboard";
 import AuthForm from "@/components/auth-form";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { getCalApi } from "@calcom/embed-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Workspace() {
   const { user, isAuthenticated, login, logout } = useAuth();
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     (async function () {
@@ -38,6 +40,17 @@ export default function Workspace() {
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <User className="text-slate-600" size={16} />
             </div>
+            {user?.role === "admin" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdmin(!showAdmin)}
+                className="flex items-center gap-2"
+              >
+                <Settings size={14} />
+                {showAdmin ? "Hide Admin" : "Admin"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -53,36 +66,42 @@ export default function Workspace() {
 
       {/* Main Layout */}
       <main className="flex flex-1 overflow-hidden">
-        <UrlCollector />
-        <AiChat />
-        <div className="w-1/3 flex flex-col">
-          <div className="h-1/2">
-            <AskLeo />
-          </div>
-          {/* Book a Call Section */}
-          <div className="h-1/2 bg-white border-l border-slate-200 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                <Calendar className="text-white" size={16} />
+        {showAdmin ? (
+          <AdminDashboard />
+        ) : (
+          <>
+            <UrlCollector />
+            <AiChat />
+            <div className="w-1/3 flex flex-col">
+              <div className="h-1/2">
+                <AskLeo />
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">Book a Call</h2>
+              {/* Book a Call Section */}
+              <div className="h-1/2 bg-white border-l border-slate-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                    <Calendar className="text-white" size={16} />
+                  </div>
+                  <h2 className="text-lg font-semibold text-slate-800">Book a Call</h2>
+                </div>
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Need personalized help with your research? Book a 1-on-1 call with me to discuss your project, get feedback, or explore new ideas.
+                  </p>
+                  <Button
+                    data-cal-namespace="leo-as-a-service"
+                    data-cal-link="build-in-public-university/leo-as-a-service"
+                    data-cal-config='{"layout":"month_view"}'
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Calendar size={16} className="mr-2" />
+                    Schedule a Call
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600">
-                Need personalized help with your research? Book a 1-on-1 call with me to discuss your project, get feedback, or explore new ideas.
-              </p>
-              <Button
-                data-cal-namespace="leo-as-a-service"
-                data-cal-link="build-in-public-university/leo-as-a-service"
-                data-cal-config='{"layout":"month_view"}'
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Calendar size={16} className="mr-2" />
-                Schedule a Call
-              </Button>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </main>
     </div>
   );

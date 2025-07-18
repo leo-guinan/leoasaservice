@@ -3,6 +3,7 @@ import { getDb } from "./db";
 import { users, urls, chatMessages, leoQuestions, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { hashPassword } from "./auth";
+import { sql } from "drizzle-orm";
 
 export class PostgresStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
@@ -16,7 +17,10 @@ export class PostgresStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await getDb().insert(users).values(insertUser).returning();
+    const result = await getDb().insert(users).values({
+      ...insertUser,
+      role: "user"
+    }).returning();
     return result[0];
   }
 
@@ -111,5 +115,51 @@ export class PostgresStorage implements IStorage {
         password: hashedPassword,
       });
     }
+  }
+
+  async getAllUsersWithStats(): Promise<Array<{
+    user: User;
+    urlCount: number;
+    messageCount: number;
+    questionCount: number;
+  }>> {
+    const allUsers = await getDb().select().from(users);
+    
+    const userStats = await Promise.all(
+      allUsers.map(async (user) => {
+        const [urlCount] = await getDb()
+          .select({ count: sql<number>`count(*)` })
+          .from(urls)
+          .where(eq(urls.userId, user.id));
+        
+        const [messageCount] = await getDb()
+          .select({ count: sql<number>`count(*)` })
+          .from(chatMessages)
+          .where(eq(chatMessages.userId, user.id));
+        
+        const [questionCount] = await getDb()
+          .select({ count: sql<number>`count(*)` })
+          .from(leoQuestions)
+          .where(eq(leoQuestions.userId, user.id));
+        
+        return {
+          user,
+          urlCount: urlCount?.count || 0,
+          messageCount: messageCount?.count || 0,
+          questionCount: questionCount?.count || 0,
+        };
+      })
+    );
+    
+    return userStats;
+  }
+
+  async updateUserRole(userId: number, role: "user" | "admin"): Promise<User | undefined> {
+    const result = await getDb().update(users)
+      .set({ role })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return result[0];
   }
 } 

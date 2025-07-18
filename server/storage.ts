@@ -26,6 +26,15 @@ export interface IStorage {
   getLeoQuestions(userId: number): Promise<LeoQuestion[]>;
   createLeoQuestion(userId: number, question: InsertLeoQuestion): Promise<LeoQuestion>;
   updateLeoQuestion(id: number, userId: number, answer: string): Promise<LeoQuestion | undefined>;
+  
+  // Admin methods
+  getAllUsersWithStats(): Promise<Array<{
+    user: User;
+    urlCount: number;
+    messageCount: number;
+    questionCount: number;
+  }>>;
+  updateUserRole(userId: number, role: "user" | "admin"): Promise<User | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -71,7 +80,7 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, role: "user" };
     this.users.set(id, user);
     return user;
   }
@@ -192,6 +201,30 @@ export class MemStorage implements IStorage {
       };
       this.leoQuestions.set(id, updatedQuestion);
       return updatedQuestion;
+    }
+    return undefined;
+  }
+
+  async getAllUsersWithStats(): Promise<Array<{
+    user: User;
+    urlCount: number;
+    messageCount: number;
+    questionCount: number;
+  }>> {
+    return Array.from(this.users.values()).map(user => ({
+      user,
+      urlCount: Array.from(this.urls.values()).filter(url => url.userId === user.id).length,
+      messageCount: Array.from(this.chatMessages.values()).filter(msg => msg.userId === user.id).length,
+      questionCount: Array.from(this.leoQuestions.values()).filter(q => q.userId === user.id).length,
+    }));
+  }
+
+  async updateUserRole(userId: number, role: "user" | "admin"): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (user) {
+      const updatedUser: User = { ...user, role };
+      this.users.set(userId, updatedUser);
+      return updatedUser;
     }
     return undefined;
   }

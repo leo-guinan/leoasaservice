@@ -730,6 +730,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes
+  app.get("/api/admin/users", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      // Check if user has admin role
+      const user = await storage.getUser(req.user!.id);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const userStats = await storage.getAllUsersWithStats();
+      res.json(userStats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user statistics" });
+    }
+  });
+
+  app.put("/api/admin/users/:id/role", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      // Check if user has admin role
+      const adminUser = await storage.getUser(req.user!.id);
+      if (!adminUser || adminUser.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const userId = parseInt(req.params.id);
+      const { role } = req.body;
+      
+      if (!role || !["user", "admin"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be 'user' or 'admin'" });
+      }
+      
+      const updatedUser = await storage.updateUserRole(userId, role);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
