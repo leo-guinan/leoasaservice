@@ -1,13 +1,22 @@
-import { Brain, User, LogOut } from "lucide-react";
+import { Brain, User, LogOut, Calendar } from "lucide-react";
 import UrlCollector from "@/components/url-collector";
 import AiChat from "@/components/ai-chat";
 import AskLeo from "@/components/ask-leo";
 import AuthForm from "@/components/auth-form";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { getCalApi } from "@calcom/embed-react";
+import { useEffect } from "react";
 
 export default function Workspace() {
   const { user, isAuthenticated, login, logout } = useAuth();
+
+  useEffect(() => {
+    (async function () {
+      const cal = await getCalApi({"namespace":"leo-as-a-service"});
+      cal("ui", {"hideEventTypeDetails":false,"layout":"month_view"});
+    })();
+  }, []);
 
   if (!isAuthenticated) {
     return <AuthForm onAuthSuccess={login} />;
@@ -46,7 +55,32 @@ export default function Workspace() {
       <main className="flex flex-1 overflow-hidden">
         <UrlCollector />
         <AiChat />
-        <AskLeo />
+        <div className="w-1/2 flex flex-col">
+          <AskLeo />
+          {/* Book a Call Section */}
+          <div className="flex-1 bg-white border-l border-slate-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                <Calendar className="text-white" size={16} />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800">Book a Call</h2>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">
+                Need personalized help with your research? Book a 1-on-1 call with me to discuss your project, get feedback, or explore new ideas.
+              </p>
+              <Button
+                data-cal-namespace="leo-as-a-service"
+                data-cal-link="build-in-public-university/leo-as-a-service"
+                data-cal-config='{"layout":"month_view"}'
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Calendar size={16} className="mr-2" />
+                Schedule a Call
+              </Button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
