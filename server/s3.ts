@@ -16,21 +16,9 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = process.env.APP_AWS_S3_BUCKET || "research-buddy-uploads";
 
-// Configure multer for S3 uploads
+// Configure multer for S3 uploads with memory storage for processing
 export const upload = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: BUCKET_NAME,
-    metadata: function (req: Request, file: Express.Multer.File, cb: (error: any, metadata?: any) => void) {
-      cb(null, { fieldName: file.fieldname });
-    },
-    key: function (req: Request, file: Express.Multer.File, cb: (error: any, key?: string) => void) {
-      const userId = (req as any).user?.id || "anonymous";
-      const fileId = uuidv4();
-      const extension = file.originalname.split('.').pop();
-      cb(null, `uploads/${userId}/${fileId}.${extension}`);
-    },
-  }),
+  storage: multer.memoryStorage(), // Keep file in memory for processing
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },

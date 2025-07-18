@@ -607,33 +607,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PDF upload route
   app.post("/api/upload/pdf", authenticateToken, upload.single("pdf"), async (req: AuthRequest, res) => {
     try {
-      if (!isS3Configured()) {
-        return res.status(500).json({ message: "S3 not configured" });
-      }
-
       if (!req.file) {
         return res.status(400).json({ message: "No PDF file uploaded" });
       }
 
-      const file = req.file as Express.MulterS3.File;
+      const file = req.file as Express.Multer.File;
       const fileName = file.originalname || "uploaded-document.pdf";
       
-      console.log(`PDF uploaded: ${fileName} to S3 key: ${file.key}`);
+      console.log(`PDF uploaded: ${fileName} (${file.size} bytes)`);
 
       // Extract text from PDF
       let pdfText = "";
+      let s3Url = "";
+      
       try {
+        console.log("File object:", {
+          fieldname: file.fieldname,
+          originalname: file.originalname,
+          encoding: file.encoding,
+          mimetype: file.mimetype,
+          size: file.size,
+          hasBuffer: !!file.buffer,
+          bufferLength: file.buffer?.length
+        });
+        
+        // File is in memory, use it directly
         const pdfBuffer = file.buffer;
+        if (!pdfBuffer) {
+          throw new Error("No file data available");
+        }
+        
+        console.log(`Processing PDF buffer of size: ${pdfBuffer.length} bytes`);
         pdfText = await extractPdfText(pdfBuffer);
         console.log(`Extracted ${pdfText.length} characters from PDF`);
+        
+        // Upload file to S3 after processing
+        if (isS3Configured()) {
+          try {
+            const { url } = await uploadFileToS3(pdfBuffer, fileName, req.user!.id);
+            s3Url = url;
+            console.log(`File uploaded to S3: ${s3Url}`);
+          } catch (s3Error) {
+            console.error("S3 upload failed:", s3Error);
+            // Continue without S3 upload
+          }
+        }
       } catch (pdfError) {
         console.error("PDF parsing failed:", pdfError);
         return res.status(400).json({ message: "Failed to parse PDF content" });
       }
 
-      // Create URL entry with S3 URL
+      // Create URL entry with S3 URL or placeholder
       const urlData = {
-        url: file.location, // S3 URL
+        url: s3Url || `pdf://${fileName}`, // S3 URL or placeholder
         title: fileName,
         notes: `PDF upload: ${fileName}`,
       };
@@ -664,7 +690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await addUrlProcessingJob(urlProcessingQueue, {
             userId: req.user!.id,
             urlId: url.id,
-            url: file.location
+            url: s3Url || `pdf://${fileName}`
           });
           console.log("PDF processing added to queue");
         } catch (queueError) {
