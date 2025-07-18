@@ -81,7 +81,7 @@ export default function AskLeo() {
 
   if (isLoading) {
     return (
-      <div className="w-1/4 bg-white border-l border-slate-200 flex flex-col">
+      <div className="w-full bg-white border-l border-slate-200 flex flex-col">
         <div className="p-4 border-b border-slate-200">
           <div className="h-6 bg-slate-200 rounded animate-pulse mb-2"></div>
           <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
