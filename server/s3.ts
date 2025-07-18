@@ -85,7 +85,7 @@ export async function uploadFileToS3(
 
 // Check if S3 is configured
 export function isS3Configured(): boolean {
-  return !!(process.env.AWS_ACCESS_KEY_ID && 
-           process.env.AWS_SECRET_ACCESS_KEY && 
-           process.env.AWS_S3_BUCKET);
+  return !!(process.env.APP_AWS_ACCESS_KEY_ID && 
+           process.env.APP_AWS_SECRET_ACCESS_KEY && 
+           process.env.APP_AWS_S3_BUCKET);
 } 
