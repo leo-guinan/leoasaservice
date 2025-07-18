@@ -95,7 +95,7 @@ export default function AskLeo() {
   }
 
   return (
-    <div className="w-1/4 bg-white border-l border-slate-200 flex flex-col">
+    <div className="w-full bg-white border-l border-slate-200 flex flex-col">
       <div className="p-4 border-b border-slate-200">
         <h2 className="text-lg font-semibold text-slate-800">Ask Leo</h2>
         <p className="text-sm text-slate-600 mt-1">Get expert guidance from Leo</p>
