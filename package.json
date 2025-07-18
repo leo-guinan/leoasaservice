@@ -20,7 +20,8 @@
     "db:reset:drop": "tsx server/reset-db.ts --drop",
     "db:check": "node scripts/check-db.js",
     "db:test-connection": "node scripts/test-db-connection.js",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "admin:promote": "node scripts/promote-admin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
