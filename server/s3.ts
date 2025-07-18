@@ -9,12 +9,12 @@ import type { Request } from "express";
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY || "",
   },
 });
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || "research-buddy-uploads";
+const BUCKET_NAME = process.env.APP_AWS_S3_BUCKET || "research-buddy-uploads";
 
 // Configure multer for S3 uploads
 export const upload = multer({
