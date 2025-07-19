@@ -21,7 +21,7 @@
     "db:check": "node scripts/check-db.js",
     "db:test-connection": "node scripts/test-db-connection.js",
     "db:studio": "drizzle-kit studio",
-    "admin:promote": "node scripts/promote-admin.js"
+    "admin:promote": "tsx -r dotenv/config scripts/promote-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
@@ -29,6 +29,8 @@
     "@calcom/embed-react": "^1.5.3",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
+    "@mastra/core": "^0.10.15",
+    "@mastra/libsql": "^0.11.0",
     "@neondatabase/serverless": "^0.10.4",
     "@radix-ui/react-accordion": "^1.2.4",
     "@radix-ui/react-alert-dialog": "^1.1.7",
@@ -80,6 +82,7 @@
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.453.0",
+    "mastra": "^0.10.13",
     "memorystore": "^1.6.7",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",

@@ -1,18 +1,17 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
 /**
- * Production script to promote a user to admin role
- * Usage: tsx scripts/promote-admin.js <userId>
- * Example: tsx scripts/promote-admin.js 2
+ * Promote a user to admin role.
+ * Usage: npm run admin:promote -- <userId>
+ * Example: npm run admin:promote -- 2
  */
 
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import { users } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 
-async function promoteToAdmin(userId) {
-  // Get database URL from environment
+async function promoteToAdmin(userId: string) {
   const databaseUrl = process.env.DATABASE_URL;
   
   if (!databaseUrl) {
@@ -20,25 +19,22 @@ async function promoteToAdmin(userId) {
     process.exit(1);
   }
 
-  if (!userId || isNaN(userId)) {
+  if (!userId || isNaN(Number(userId))) {
     console.error('❌ Valid user ID is required');
-    console.log('Usage: node scripts/promote-admin.js <userId>');
-    console.log('Example: node scripts/promote-admin.js 2');
+    console.log('Usage: npm run admin:promote -- <userId>');
+    console.log('Example: npm run admin:promote -- 2');
     process.exit(1);
   }
 
-  const pool = new Pool({
-    connectionString: databaseUrl,
+  const client = postgres(databaseUrl, {
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
-
-  const db = drizzle(pool);
+  const db = drizzle(client);
 
   try {
     console.log(`🔍 Looking for user with ID: ${userId}`);
     
-    // First, check if user exists
-    const existingUser = await db.select().from(users).where(eq(users.id, parseInt(userId))).limit(1);
+    const existingUser = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
     
     if (existingUser.length === 0) {
       console.error(`❌ User with ID ${userId} not found`);
@@ -53,10 +49,9 @@ async function promoteToAdmin(userId) {
       process.exit(0);
     }
 
-    // Update user role to admin
     const updatedUser = await db.update(users)
       .set({ role: 'admin' })
-      .where(eq(users.id, parseInt(userId)))
+      .where(eq(users.id, Number(userId)))
       .returning();
 
     if (updatedUser.length > 0) {
@@ -71,21 +66,21 @@ async function promoteToAdmin(userId) {
       process.exit(1);
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error promoting user to admin:', error.message);
     process.exit(1);
   } finally {
-    await pool.end();
+    await client.end();
   }
 }
 
-// Get user ID from command line arguments
+// Get user ID from command line arguments (skip first two which are node and script path)
 const userId = process.argv[2];
 
 if (!userId) {
   console.error('❌ User ID is required');
-  console.log('Usage: node scripts/promote-admin.js <userId>');
-  console.log('Example: node scripts/promote-admin.js 2');
+  console.log('Usage: npm run admin:promote -- <userId>');
+  console.log('Example: npm run admin:promote -- 2');
   process.exit(1);
 }
 
