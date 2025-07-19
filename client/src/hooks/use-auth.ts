@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 interface User {
   id: number;
   username: string;
+  role: string;
 }
 
 interface AuthState {
@@ -54,7 +55,7 @@ export function useAuth() {
   const login = (token: string, username: string) => {
     localStorage.setItem("auth_token", token);
     setAuthState({
-      user: { id: 0, username }, // We'll get the real user data from the token
+      user: { id: 0, username, role: "user" }, // We'll get the real user data from the token
       token,
       isAuthenticated: true,
     });
