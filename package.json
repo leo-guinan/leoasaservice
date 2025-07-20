@@ -21,7 +21,11 @@
     "db:check": "node scripts/check-db.js",
     "db:test-connection": "node scripts/test-db-connection.js",
     "db:studio": "drizzle-kit studio",
-    "admin:promote": "tsx -r dotenv/config scripts/promote-admin.ts"
+    "admin:promote": "tsx -r dotenv/config scripts/promote-admin.ts",
+    "context:update": "tsx scripts/update-all-contexts.ts",
+    "context:update:today": "tsx scripts/update-all-contexts.ts --start $(date -v-1d +%Y-%m-%d) --end $(date +%Y-%m-%d)",
+    "context:update:week": "tsx scripts/update-all-contexts.ts --start $(date -v-7d +%Y-%m-%d) --end $(date +%Y-%m-%d)",
+    "context:update:month": "tsx scripts/update-all-contexts.ts --start $(date -v-30d +%Y-%m-%d) --end $(date +%Y-%m-%d)"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.23",
