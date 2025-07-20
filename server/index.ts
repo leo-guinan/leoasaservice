@@ -11,6 +11,57 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Security middleware to block directory traversal attacks
+app.use((req, res, next) => {
+  const path = req.path;
+  
+  // Block suspicious paths that are commonly used in attacks
+  const suspiciousPatterns = [
+    /\/api\/backup\//,
+    /\/api\/config\//,
+    /\/api\/data\//,
+    /\/api\/admin\//,
+    /\/api\/logs\//,
+    /\/api\/debug\//,
+    /\/api\/test\//,
+    /\/api\/wp-/,
+    /\/api\/\.env/,
+    /\/api\/\.git/,
+    /\/api\/\.ssh/,
+    /\/api\/\.htaccess/,
+    /\/api\/\.htpasswd/,
+    /\/api\/web\.config/,
+    /\/api\/php\.ini/,
+    /\/api\/config\.php/,
+    /\/api\/database\./,
+    /\/api\/db\./,
+    /\/api\/users\./,
+    /\/api\/site\./,
+    /\/api\/debug\./,
+    /\/api\/log\./,
+    /\/api\/secret\./,
+    /\/api\/settings\./,
+    /\/api\/env\./,
+    /\/api\/default\./,
+    /\/api\/info\./,
+    /\/api\/login\./,
+    /\/api\/main\./,
+    /\/api\/readme\./,
+    /\/api\/sample\./,
+    /\/api\/test\./,
+    /\/api\/wp-config\./,
+  ];
+  
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(path)) {
+      console.log(`🚨 Blocked suspicious request: ${req.method} ${path} from ${req.ip}`);
+      return res.status(404).json({ error: "Not found" });
+    }
+  }
+  
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

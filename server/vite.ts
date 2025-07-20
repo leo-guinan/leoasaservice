@@ -75,7 +75,19 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Serve static files with security options
+  app.use(express.static(distPath, {
+    // Only serve files with these extensions
+    extensions: ['html', 'css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot'],
+    // Don't serve dotfiles
+    dotfiles: 'deny',
+    // Set security headers
+    setHeaders: (res, path) => {
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('X-Frame-Options', 'DENY');
+      res.set('X-XSS-Protection', '1; mode=block');
+    }
+  }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (req, res) => {
