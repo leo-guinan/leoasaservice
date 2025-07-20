@@ -38,6 +38,14 @@ export const leoQuestions = pgTable("leo_questions", {
   answeredAt: timestamp("answered_at"),
 });
 
+export const userContexts = pgTable("user_contexts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  context: jsonb("context").notNull(), // Store the AI-generated context summary
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  version: integer("version").notNull().default(1), // Track context versions
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -66,3 +74,4 @@ export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertLeoQuestion = z.infer<typeof insertLeoQuestionSchema>;
 export type LeoQuestion = typeof leoQuestions.$inferSelect;
+export type UserContext = typeof userContexts.$inferSelect;

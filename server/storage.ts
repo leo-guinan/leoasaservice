@@ -1,4 +1,4 @@
-import { users, urls, chatMessages, leoQuestions, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext } from "@shared/schema";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -35,6 +35,10 @@ export interface IStorage {
     questionCount: number;
   }>>;
   updateUserRole(userId: number, role: "user" | "admin"): Promise<User | undefined>;
+  
+  // Context methods
+  getUserContext(userId: number): Promise<UserContext | undefined>;
+  updateUserContext(userId: number, context: any): Promise<UserContext>;
 }
 
 export class MemStorage implements IStorage {
@@ -42,20 +46,24 @@ export class MemStorage implements IStorage {
   private urls: Map<number, Url>;
   private chatMessages: Map<number, ChatMessage>;
   private leoQuestions: Map<number, LeoQuestion>;
+  private userContexts: Map<number, UserContext>;
   private currentUserId: number;
   private currentUrlId: number;
   private currentChatMessageId: number;
   private currentLeoQuestionId: number;
+  private currentContextId: number;
 
   constructor() {
     this.users = new Map();
     this.urls = new Map();
     this.chatMessages = new Map();
     this.leoQuestions = new Map();
+    this.userContexts = new Map();
     this.currentUserId = 1;
     this.currentUrlId = 1;
     this.currentChatMessageId = 1;
     this.currentLeoQuestionId = 1;
+    this.currentContextId = 1;
   }
 
   async initialize() {
@@ -227,6 +235,28 @@ export class MemStorage implements IStorage {
       return updatedUser;
     }
     return undefined;
+  }
+
+  async getUserContext(userId: number): Promise<UserContext | undefined> {
+    return Array.from(this.userContexts.values())
+      .filter(context => context.userId === userId)
+      .sort((a, b) => b.version - a.version)[0];
+  }
+
+  async updateUserContext(userId: number, context: any): Promise<UserContext> {
+    const existingContext = await this.getUserContext(userId);
+    const newVersion = (existingContext?.version || 0) + 1;
+    
+    const userContext: UserContext = {
+      id: this.currentContextId++,
+      userId,
+      context,
+      lastUpdated: new Date(),
+      version: newVersion,
+    };
+    
+    this.userContexts.set(userContext.id, userContext);
+    return userContext;
   }
 }
 

@@ -1,6 +1,6 @@
 import { eq, desc, asc } from "drizzle-orm";
 import { getDb } from "./db";
-import { users, urls, chatMessages, leoQuestions, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { hashPassword } from "./auth";
 import { sql } from "drizzle-orm";
@@ -142,12 +142,15 @@ export class PostgresStorage implements IStorage {
           .from(leoQuestions)
           .where(eq(leoQuestions.userId, user.id));
         
-        return {
+        const result = {
           user,
-          urlCount: urlCount?.count || 0,
-          messageCount: messageCount?.count || 0,
-          questionCount: questionCount?.count || 0,
+          urlCount: Number(urlCount?.count || 0),
+          messageCount: Number(messageCount?.count || 0),
+          questionCount: Number(questionCount?.count || 0),
         };
+        
+        console.log(`User ${user.username} stats:`, result);
+        return result;
       })
     );
     
@@ -159,6 +162,30 @@ export class PostgresStorage implements IStorage {
       .set({ role })
       .where(eq(users.id, userId))
       .returning();
+    
+    return result[0];
+  }
+
+  async getUserContext(userId: number): Promise<UserContext | undefined> {
+    const result = await getDb()
+      .select()
+      .from(userContexts)
+      .where(eq(userContexts.userId, userId))
+      .orderBy(desc(userContexts.version))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async updateUserContext(userId: number, context: any): Promise<UserContext> {
+    const existingContext = await this.getUserContext(userId);
+    const newVersion = (existingContext?.version || 0) + 1;
+    
+    const result = await getDb().insert(userContexts).values({
+      userId,
+      context,
+      version: newVersion,
+    }).returning();
     
     return result[0];
   }

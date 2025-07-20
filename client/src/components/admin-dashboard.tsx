@@ -115,9 +115,18 @@ export default function AdminDashboard() {
   }
 
   const totalUsers = userStats.length;
-  const totalUrls = userStats.reduce((sum, stat) => sum + stat.urlCount, 0);
-  const totalMessages = userStats.reduce((sum, stat) => sum + stat.messageCount, 0);
-  const totalQuestions = userStats.reduce((sum, stat) => sum + stat.questionCount, 0);
+  const totalUrls = userStats.reduce((sum, stat) => sum + Number(stat.urlCount), 0);
+  const totalMessages = userStats.reduce((sum, stat) => sum + Number(stat.messageCount), 0);
+  const totalQuestions = userStats.reduce((sum, stat) => sum + Number(stat.questionCount), 0);
+
+  // Debug logging
+  console.log('Admin Dashboard Data:', {
+    userStats,
+    totalUsers,
+    totalUrls,
+    totalMessages,
+    totalQuestions
+  });
 
   return (
     <div className="w-full bg-white border-l border-slate-200 flex flex-col">
