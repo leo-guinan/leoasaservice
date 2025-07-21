@@ -96,7 +96,8 @@ Your task is to update the user's context by:
 5. Adding recent insights from the new activity
 6. Maintaining a coherent and organized context structure
 
-Return ONLY a JSON object with the updated context structure:
+IMPORTANT: Return ONLY a valid JSON object with the updated context structure. Do not include any markdown formatting, code blocks, or explanatory text. The response must be parseable JSON.
+
 {
   "researchInterests": ["interest1", "interest2", ...],
   "currentProjects": ["project1", "project2", ...],
@@ -120,7 +121,7 @@ Guidelines:
       messages: [
         {
           role: "system",
-          content: "You are a research context analyzer. Return only valid JSON."
+          content: "You are a research context analyzer. You must return ONLY valid JSON without any markdown formatting, code blocks, or additional text. The response should be a pure JSON object that can be parsed directly."
         },
         {
           role: "user",
@@ -135,8 +136,37 @@ Guidelines:
       throw new Error('No response from AI');
     }
 
-    // Parse the AI response
-    const updatedContextData = JSON.parse(aiResponse);
+    // Extract JSON from the response (handle markdown code blocks)
+    let jsonString = aiResponse.trim();
+    
+    // Remove markdown code blocks if present
+    if (jsonString.startsWith('```json')) {
+      jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Try to parse the JSON
+    let updatedContextData;
+    try {
+      updatedContextData = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', jsonString);
+      console.error('Parse error:', parseError);
+      
+      // Try to extract JSON from the response using regex
+      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          updatedContextData = JSON.parse(jsonMatch[0]);
+        } catch (secondError) {
+          const errorMessage = secondError instanceof Error ? secondError.message : 'Unknown parsing error';
+          throw new Error(`Failed to parse JSON from AI response: ${errorMessage}`);
+        }
+      } else {
+        throw new Error('No valid JSON found in AI response');
+      }
+    }
     
     // Check if context actually changed
     const contextChanged = JSON.stringify(currentContext) !== JSON.stringify(updatedContextData);
