@@ -36,7 +36,11 @@
     "cleanup-pro-profiles": "tsx scripts/cleanup-pro-profiles.ts",
     "test:context-switching": "tsx scripts/test-context-switching.ts",
     "setup-context-tables": "tsx scripts/setup-context-tables.ts",
-    "test:context-specific-data": "tsx scripts/test-context-specific-data.ts"
+    "test:context-specific-data": "tsx scripts/test-context-specific-data.ts",
+    "migrate-existing-urls": "tsx scripts/migrate-existing-urls.ts",
+    "migrate-urls-to-default": "tsx scripts/migrate-urls-to-default-context.ts",
+    "prod-migrate-urls": "tsx scripts/prod-migrate-urls.ts",
+    "cleanup-main-urls": "tsx scripts/cleanup-main-urls.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.23",

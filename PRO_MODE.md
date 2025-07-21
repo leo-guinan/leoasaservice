@@ -386,6 +386,53 @@ npm run cleanup-pro-profiles
 # (Use your preferred database client)
 ```
 
+### **Production Migration Commands**
+```bash
+# Safe migration (copies URLs to context tables, doesn't delete)
+npm run prod-migrate-urls
+
+# Cleanup main table URLs after migration (only if data is safe in context)
+npm run cleanup-main-urls
+
+# Full migration with cleanup (for development/testing)
+npm run migrate-existing-urls
+
+# Migration to default context (for development/testing)
+npm run migrate-urls-to-default
+```
+
+### **Migration Process for Existing Users**
+
+When enabling Pro Mode for existing users, you need to migrate their existing URLs to the appropriate context:
+
+#### **Step 1: Safe Migration**
+```bash
+npm run prod-migrate-urls
+```
+- **What it does**: Copies existing URLs to context tables for pro mode users
+- **Safety**: Does NOT delete any data from main tables
+- **Result**: URLs are available in both main and context tables
+
+#### **Step 2: Verify Migration**
+- Start your server: `npm run dev`
+- Enable pro mode for users
+- Verify that URLs appear in the correct context
+- Test context switching
+
+#### **Step 3: Cleanup (Optional)**
+```bash
+npm run cleanup-main-urls
+```
+- **What it does**: Removes URLs from main table for pro mode users
+- **Safety**: Only removes URLs that are already in context tables
+- **When to use**: After verifying migration works correctly
+
+#### **Migration Logic**
+- **Pro mode users with active profiles**: URLs copied to profile context
+- **Pro mode users without active profiles**: URLs stay in main table (default context)
+- **Regular users**: URLs stay in main table
+- **No data loss**: All data is preserved throughout the process
+
 ## 📚 API Reference
 
 ### **Context Profile Tool**
