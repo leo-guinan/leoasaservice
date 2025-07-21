@@ -35,6 +35,22 @@ export default function AiChat() {
     },
   });
 
+  // Get current user context to refresh daily summary when context changes
+  const { data: userContext } = useQuery({
+    queryKey: ["/api/user/context"],
+    queryFn: async () => {
+      const response = await fetch("/api/user/context", {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch user context");
+      }
+      return response.json();
+    },
+  });
+
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       const response = await fetch("/api/chat/messages", {
@@ -202,6 +218,7 @@ export default function AiChat() {
         {showDailySummary && (
           <DailyContextSummary 
             onDismiss={() => setShowDailySummary(false)}
+            key={`context-${userContext?.context?.version || 'default'}`}
           />
         )}
         

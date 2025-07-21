@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getDb } from '../../db';
-import { userContextProfiles, userContextProfileData, users } from '@shared/schema';
+import { userContextProfiles, userContextProfileData, users, userContexts, urls, chatMessages } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 export const contextProfileTool = createTool({
@@ -29,6 +29,10 @@ export const contextProfileTool = createTool({
       id: z.number(),
       name: z.string(),
       description: z.string().nullable(),
+    }).optional(),
+    clearedData: z.object({
+      urls: z.boolean(),
+      chatHistory: z.boolean(),
     }).optional(),
   }),
   execute: async ({ context }) => {
@@ -76,13 +80,40 @@ export const contextProfileTool = createTool({
             .where(eq(userContextProfiles.userId, userId))
             .orderBy(userContextProfiles.name);
 
+          // Get the default context (from userContexts table)
+          const defaultContext = await db
+            .select({
+              lastUpdated: userContexts.lastUpdated,
+              version: userContexts.version,
+            })
+            .from(userContexts)
+            .where(eq(userContexts.userId, userId))
+            .orderBy(desc(userContexts.version))
+            .limit(1);
+
+          // Check if any profile is currently active
+          const hasActiveProfile = profiles.some(p => p.isActive);
+
+          // Create default context profile entry
+          const defaultProfile = {
+            id: 0, // Special ID for default context
+            name: 'Default Context',
+            description: 'Your main research context',
+            isActive: !hasActiveProfile, // Active if no other profile is active
+            lastUpdated: defaultContext.length > 0 ? defaultContext[0].lastUpdated.toISOString() : null,
+            version: defaultContext.length > 0 ? defaultContext[0].version : null,
+          };
+
+          // Combine default profile with custom profiles
+          const allProfiles = [defaultProfile, ...profiles.map(profile => ({
+            ...profile,
+            lastUpdated: profile.lastUpdated ? profile.lastUpdated.toISOString() : null,
+          }))];
+
           return {
             success: true,
-            message: `Found ${profiles.length} context profiles`,
-            profiles: profiles.map(profile => ({
-              ...profile,
-              lastUpdated: profile.lastUpdated ? profile.lastUpdated.toISOString() : null,
-            })),
+            message: `Found ${allProfiles.length} context profiles`,
+            profiles: allProfiles,
           };
         }
 
@@ -128,12 +159,26 @@ export const contextProfileTool = createTool({
         }
 
         case 'switch': {
-          if (!profileId && !profileName) {
+          if ((profileId === undefined || profileId === null) && !profileName) {
             throw new Error('Profile ID or name is required for switch action');
           }
 
-          let targetProfile;
-          if (profileId) {
+          let targetProfile: any[] = [];
+          let isDefaultContext = false;
+
+          if (profileId === 0) {
+            // Switching to default context
+            isDefaultContext = true;
+            targetProfile = [{
+              id: 0,
+              name: 'Default Context',
+              description: 'Your main research context',
+              userId: userId,
+              isActive: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }];
+          } else if (profileId && profileId > 0) {
             targetProfile = await db
               .select()
               .from(userContextProfiles)
@@ -142,13 +187,13 @@ export const contextProfileTool = createTool({
                 eq(userContextProfiles.id, profileId)
               ))
               .limit(1);
-          } else {
+          } else if (profileName) {
             targetProfile = await db
               .select()
               .from(userContextProfiles)
               .where(and(
                 eq(userContextProfiles.userId, userId),
-                eq(userContextProfiles.name, profileName!)
+                eq(userContextProfiles.name, profileName)
               ))
               .limit(1);
           }
@@ -163,19 +208,34 @@ export const contextProfileTool = createTool({
             .set({ isActive: false })
             .where(eq(userContextProfiles.userId, userId));
 
-          // Activate the target profile
+          // Activate the target profile (if not default context)
+          if (!isDefaultContext) {
+            await db
+              .update(userContextProfiles)
+              .set({ isActive: true })
+              .where(eq(userContextProfiles.id, targetProfile[0].id));
+          }
+
+          // Clear URLs and chat history for the user
           await db
-            .update(userContextProfiles)
-            .set({ isActive: true })
-            .where(eq(userContextProfiles.id, targetProfile[0].id));
+            .delete(urls)
+            .where(eq(urls.userId, userId));
+
+          await db
+            .delete(chatMessages)
+            .where(eq(chatMessages.userId, userId));
 
           return {
             success: true,
-            message: `Switched to context profile: ${targetProfile[0].name}`,
+            message: `Switched to context profile: ${targetProfile[0].name}. URLs and chat history cleared.`,
             activeProfile: {
               id: targetProfile[0].id,
               name: targetProfile[0].name,
               description: targetProfile[0].description,
+            },
+            clearedData: {
+              urls: true,
+              chatHistory: true,
             },
           };
         }

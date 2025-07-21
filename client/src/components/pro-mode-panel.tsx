@@ -127,10 +127,25 @@ export default function ProModePanel() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/pro/profiles'] });
       queryClient.invalidateQueries({ queryKey: ['/api/user/context'] });
+      
+      // Clear related data if it was cleared on the server
+      if (data.clearedData) {
+        if (data.clearedData.urls) {
+          queryClient.invalidateQueries({ queryKey: ['/api/urls'] });
+        }
+        if (data.clearedData.chatHistory) {
+          queryClient.invalidateQueries({ queryKey: ['/api/chat/messages'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/user/context-summary'] });
+        }
+      }
+      
       toast({
         title: "Profile Switched",
-        description: `Switched to: ${data.activeProfile.name}`,
+        description: data.message,
       });
+      
+      // Close the modal after switching
+      setIsOpen(false);
     },
     onError: (error) => {
       toast({
