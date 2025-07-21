@@ -76,3 +76,76 @@
     opacity: .5;
   }
 }
+
+/* Markdown styling for chat messages */
+.chat-markdown {
+  @apply text-sm leading-relaxed;
+}
+
+.chat-markdown h1 {
+  @apply text-lg font-bold mb-2 text-slate-900;
+}
+
+.chat-markdown h2 {
+  @apply text-base font-semibold mb-2 text-slate-900;
+}
+
+.chat-markdown h3 {
+  @apply text-sm font-semibold mb-1 text-slate-900;
+}
+
+.chat-markdown p {
+  @apply mb-2 last:mb-0;
+}
+
+.chat-markdown ul {
+  @apply list-disc list-inside mb-2 space-y-1;
+}
+
+.chat-markdown ol {
+  @apply list-decimal list-inside mb-2 space-y-1;
+}
+
+.chat-markdown li {
+  @apply text-sm;
+}
+
+.chat-markdown blockquote {
+  @apply border-l-4 border-blue-200 pl-3 italic text-slate-700 mb-2;
+}
+
+.chat-markdown code {
+  @apply bg-slate-200 px-1 py-0.5 rounded text-xs font-mono;
+}
+
+.chat-markdown pre {
+  @apply bg-slate-200 p-2 rounded text-xs font-mono overflow-x-auto mb-2;
+}
+
+.chat-markdown pre code {
+  @apply bg-transparent p-0;
+}
+
+.chat-markdown strong {
+  @apply font-semibold;
+}
+
+.chat-markdown em {
+  @apply italic;
+}
+
+.chat-markdown a {
+  @apply text-blue-600 hover:text-blue-800 underline;
+}
+
+.chat-markdown table {
+  @apply min-w-full border border-slate-300 text-xs;
+}
+
+.chat-markdown th {
+  @apply border border-slate-300 px-2 py-1 bg-slate-100 font-semibold text-left;
+}
+
+.chat-markdown td {
+  @apply border border-slate-300 px-2 py-1;
+}

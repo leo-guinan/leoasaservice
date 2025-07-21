@@ -7,6 +7,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@shared/schema";
+import { Markdown } from "@/components/ui/markdown";
 
 export default function AiChat() {
   const [message, setMessage] = useState("");
@@ -201,9 +202,18 @@ export default function AiChat() {
             </div>
             <div className="flex-1">
               <div className="bg-slate-100 rounded-lg p-3 max-w-md">
-                <p className="text-sm text-slate-800">
-                  Hello! I'm your AI assistant. I can help you analyze your research materials, answer questions about your URLs, and assist with writing and research tasks. You can also upload PDF files using the file icon button below. What would you like to explore today?
-                </p>
+                <div className="text-sm text-slate-800">
+                  <Markdown>{`Hello! I'm your **AI research assistant**. I can help you:
+
+• **Analyze research materials** and saved URLs
+• **Answer questions** about your research
+• **Assist with writing** and research tasks
+• **Process PDF files** (use the file icon below)
+
+I also have access to your **research context**, so I can provide personalized insights based on your interests and current projects.
+
+What would you like to explore today?`}</Markdown>
+                </div>
               </div>
               <div className="text-xs text-slate-500 mt-1">Just now</div>
             </div>
@@ -231,10 +241,15 @@ export default function AiChat() {
                       ? "bg-blue-600 text-white ml-auto"
                       : "bg-slate-100"
                     }`}>
-                    <p className={`text-sm ${msg.role === "user" ? "text-white" : "text-slate-800"
-                      }`}>
-                      {msg.content}
-                    </p>
+                    {msg.role === "user" ? (
+                      <p className="text-sm text-white">
+                        {msg.content}
+                      </p>
+                    ) : (
+                      <div className="text-sm text-slate-800">
+                        <Markdown>{msg.content}</Markdown>
+                      </div>
+                    )}
                   </div>
                   <div className={`text-xs text-slate-500 mt-1 ${msg.role === "user" ? "text-right" : ""
                     }`}>
