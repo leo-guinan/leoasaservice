@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@shared/schema";
 import { Markdown } from "@/components/ui/markdown";
 import DailyContextSummary from "@/components/daily-context-summary";
+import ProModePanel from "@/components/pro-mode-panel";
 
 export default function AiChat() {
   const [message, setMessage] = useState("");

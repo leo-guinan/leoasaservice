@@ -9,6 +9,8 @@ import { userActivityAgent } from './agents/user-activity-agent';
 import { contextAgent } from './agents/context-agent';
 import { chatAgent } from './agents/chat-agent';
 import { contextSummaryAgent } from './agents/context-summary-agent';
+import { contextProfileTool } from './tools/context-profile-tool';
+import { manualContextUpdateTool } from './tools/manual-context-update-tool';
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow, userContextWorkflow },

@@ -3,8 +3,8 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { getDb } from '../../db';
-import { userContexts } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { userContexts, users, userContextProfiles, userContextProfileData } from '@shared/schema';
+import { eq, desc, and } from 'drizzle-orm';
 
 export const chatAgent = new Agent({
   name: 'Research Chat Agent',
@@ -33,18 +33,55 @@ export const chatAgent = new Agent({
 export async function getUserContext(userId: number): Promise<any> {
   try {
     const db = getDb();
-    const context = await db
-      .select()
-      .from(userContexts)
-      .where(eq(userContexts.userId, userId))
-      .orderBy(desc(userContexts.version))
-      .limit(1);
-
-    if (context.length === 0) {
+    
+    // Check if user has pro mode enabled
+    const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (user.length === 0) {
       return null;
     }
 
-    return context[0].context;
+    if (user[0].proMode) {
+      // For pro mode users, get context from active profile
+      const activeProfile = await db
+        .select()
+        .from(userContextProfiles)
+        .where(and(
+          eq(userContextProfiles.userId, userId),
+          eq(userContextProfiles.isActive, true)
+        ))
+        .limit(1);
+
+      if (activeProfile.length === 0) {
+        return null;
+      }
+
+      const latestProfileContext = await db
+        .select()
+        .from(userContextProfileData)
+        .where(eq(userContextProfileData.profileId, activeProfile[0].id))
+        .orderBy(desc(userContextProfileData.version))
+        .limit(1);
+
+      if (latestProfileContext.length === 0) {
+        return null;
+      }
+
+      return latestProfileContext[0].context;
+    } else {
+      // For regular users, get context from the main userContexts table
+      const latestContext = await db
+        .select()
+        .from(userContexts)
+        .where(eq(userContexts.userId, userId))
+        .orderBy(desc(userContexts.version))
+        .limit(1);
+
+      if (latestContext.length === 0) {
+        return null;
+      }
+
+      return latestContext[0].context;
+    }
   } catch (error) {
     console.error('Error fetching user context:', error);
     return null;

@@ -830,6 +830,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pro Mode: Manage context profiles
+  app.post("/api/pro/profiles", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { action, profileName, description, profileId } = req.body;
+      const { contextProfileTool } = await import('./mastra/tools/context-profile-tool.js');
+      
+      const result = await contextProfileTool.execute({
+        context: {
+          action,
+          userId: req.user!.id,
+          profileName,
+          description,
+          profileId,
+        },
+      } as any);
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Error managing context profiles:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to manage context profiles',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Pro Mode: Manual context update
+  app.post("/api/pro/context-update", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { date, profileId, forceUpdate } = req.body;
+      const { manualContextUpdateTool } = await import('./mastra/tools/manual-context-update-tool.js');
+      
+      const result = await manualContextUpdateTool.execute({
+        context: {
+          userId: req.user!.id,
+          date,
+          profileId,
+          forceUpdate,
+        },
+      } as any);
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Error in manual context update:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update context',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Pro Mode: Get user pro mode status
+  app.get("/api/pro/status", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { getDb } = await import('./db.js');
+      const { users } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const db = getDb();
+      const user = await db
+        .select({ proMode: users.proMode })
+        .from(users)
+        .where(eq(users.id, req.user!.id))
+        .limit(1);
+
+      if (user.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        proMode: user[0].proMode
+      });
+    } catch (error) {
+      console.error('Error getting pro mode status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get pro mode status',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Test route to manually trigger context generation
   app.post("/api/test/context", authenticateToken, async (req: AuthRequest, res) => {
     try {
