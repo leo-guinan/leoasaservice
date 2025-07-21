@@ -11,6 +11,7 @@ import { testRedisConnection } from "@shared/redis";
 import { upload, uploadFileToS3, isS3Configured } from "./s3";
 import puppeteer, { Browser } from "puppeteer";
 import sharp from "sharp";
+import { getUserContext, createContextAwarePrompt } from "./mastra/agents/chat-agent";
 
 // Convert PDF pages to images and extract text using GPT-4o vision
 async function extractPdfText(buffer: Buffer): Promise<string> {
@@ -550,12 +551,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: msg.content
           }));
 
+          // Get user's research context
+          const userContext = await getUserContext(req.user!.id);
+          const systemPrompt = createContextAwarePrompt(userContext);
+          
+          console.log(`Using context-aware chat for user ${req.user!.id}:`, {
+            hasContext: !!userContext,
+            contextVersion: userContext?.version,
+            contextLastUpdated: userContext?.lastUpdated,
+            researchInterests: userContext?.researchInterests?.length || 0,
+            currentProjects: userContext?.currentProjects?.length || 0
+          });
+
           const response = await openai.chat.completions.create({
             model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             messages: [
               {
                 role: "system",
-                content: "You are a helpful AI research assistant. Help users analyze their research materials, answer questions about their saved URLs, and assist with writing and research tasks. Be concise but thorough in your responses."
+                content: systemPrompt
               },
               ...messages
             ],
@@ -769,6 +782,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedUser);
     } catch (error) {
       res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Get current user's context
+  app.get("/api/user/context", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const userContext = await getUserContext(req.user!.id);
+      res.json({
+        hasContext: !!userContext,
+        context: userContext
+      });
+    } catch (error) {
+      console.error('Error fetching user context:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user context',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test route to manually trigger context generation
+  app.post("/api/test/context", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { mastra } = await import('./mastra/index.js');
+      const workflow = mastra.getWorkflow('userContextWorkflow');
+      const run = await workflow.createRunAsync();
+      const result = await run.start({
+        inputData: {
+          date: new Date().toISOString().split('T')[0], // Today's date
+        },
+      });
+      
+      if (result.status === 'success') {
+        res.json({
+          success: true,
+          message: 'Context generation completed',
+          result: result.result
+        });
+      } else if (result.status === 'failed') {
+        res.status(500).json({
+          success: false,
+          message: 'Context generation failed',
+          error: result.error?.message || 'Unknown error'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Context generation suspended or in unexpected state',
+          status: result.status
+        });
+      }
+    } catch (error) {
+      console.error('Context generation test failed:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Context generation test failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
