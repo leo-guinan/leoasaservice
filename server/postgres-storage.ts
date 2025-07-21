@@ -1,6 +1,6 @@
 import { eq, desc, asc } from "drizzle-orm";
 import { getDb } from "./db";
-import { users, urls, chatMessages, leoQuestions, userContexts, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, contextUrls, contextChatMessages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type ContextUrl, type ContextChatMessage } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { hashPassword } from "./auth";
 import { sql } from "drizzle-orm";
@@ -188,5 +188,175 @@ export class PostgresStorage implements IStorage {
     }).returning();
     
     return result[0];
+  }
+
+  // Context-specific data methods (for pro mode)
+  async getContextUrls(userId: number, profileId: number): Promise<ContextUrl[]> {
+    if (profileId === 0) {
+      // For default context, use main URLs table
+      const urls = await this.getUrls(userId);
+      return urls.map(url => ({
+        ...url,
+        profileId: 0,
+      })) as ContextUrl[];
+    } else {
+      // For custom profiles, use context-specific table
+      return await getDb()
+        .select()
+        .from(contextUrls)
+        .where(eq(contextUrls.profileId, profileId))
+        .orderBy(desc(contextUrls.createdAt));
+    }
+  }
+
+  async createContextUrl(userId: number, profileId: number, url: InsertUrl): Promise<ContextUrl> {
+    if (profileId === 0) {
+      // For default context, use main URLs table
+      const createdUrl = await this.createUrl(userId, url);
+      return {
+        ...createdUrl,
+        profileId: 0,
+      } as ContextUrl;
+    } else {
+      // For custom profiles, use context-specific table
+      const result = await getDb().insert(contextUrls).values({
+        ...url,
+        profileId,
+        userId,
+        title: url.title || null,
+        notes: url.notes || null,
+      }).returning();
+      return result[0];
+    }
+  }
+
+  async getContextChatMessages(userId: number, profileId: number): Promise<ContextChatMessage[]> {
+    if (profileId === 0) {
+      // For default context, use main chat messages table
+      const messages = await this.getChatMessages(userId);
+      return messages.map(message => ({
+        ...message,
+        profileId: 0,
+      })) as ContextChatMessage[];
+    } else {
+      // For custom profiles, use context-specific table
+      return await getDb()
+        .select()
+        .from(contextChatMessages)
+        .where(eq(contextChatMessages.profileId, profileId))
+        .orderBy(asc(contextChatMessages.createdAt));
+    }
+  }
+
+  async createContextChatMessage(userId: number, profileId: number, message: InsertChatMessage): Promise<ContextChatMessage> {
+    if (profileId === 0) {
+      // For default context, use main chat messages table
+      const createdMessage = await this.createChatMessage(userId, message);
+      return {
+        ...createdMessage,
+        profileId: 0,
+      } as ContextChatMessage;
+    } else {
+      // For custom profiles, use context-specific table
+      const result = await getDb().insert(contextChatMessages).values({
+        ...message,
+        profileId,
+        userId,
+      }).returning();
+      return result[0];
+    }
+  }
+
+  async migrateDataToContext(userId: number, profileId: number): Promise<{ urls: number; messages: number }> {
+    if (profileId === 0) {
+      // No migration needed for default context
+      return { urls: 0, messages: 0 };
+    }
+
+    // Migrate URLs from main table to context-specific table
+    const existingUrls = await getDb().select().from(urls).where(eq(urls.userId, userId));
+    let migratedUrls = 0;
+    
+    if (existingUrls.length > 0) {
+      await getDb().insert(contextUrls).values(
+        existingUrls.map(url => ({
+          profileId,
+          userId: url.userId,
+          url: url.url,
+          title: url.title,
+          notes: url.notes,
+          content: url.content,
+          analysis: url.analysis,
+          createdAt: url.createdAt,
+        }))
+      );
+      migratedUrls = existingUrls.length;
+      
+      // Clear main URLs table
+      await getDb().delete(urls).where(eq(urls.userId, userId));
+    }
+
+    // Migrate chat messages from main table to context-specific table
+    const existingMessages = await getDb().select().from(chatMessages).where(eq(chatMessages.userId, userId));
+    let migratedMessages = 0;
+    
+    if (existingMessages.length > 0) {
+      await getDb().insert(contextChatMessages).values(
+        existingMessages.map(message => ({
+          profileId,
+          userId: message.userId,
+          content: message.content,
+          role: message.role,
+          createdAt: message.createdAt,
+        }))
+      );
+      migratedMessages = existingMessages.length;
+      
+      // Clear main chat messages table
+      await getDb().delete(chatMessages).where(eq(chatMessages.userId, userId));
+    }
+
+    return { urls: migratedUrls, messages: migratedMessages };
+  }
+
+  async loadContextData(userId: number, profileId: number): Promise<{ urls: number; messages: number }> {
+    if (profileId === 0) {
+      // For default context, return data from main tables
+      const mainUrls = await this.getUrls(userId);
+      const mainMessages = await this.getChatMessages(userId);
+      return { urls: mainUrls.length, messages: mainMessages.length };
+    } else {
+      // For custom profiles, return data from context-specific tables
+      const contextUrls = await this.getContextUrls(userId, profileId);
+      const contextMessages = await this.getContextChatMessages(userId, profileId);
+      
+      // Copy context-specific data to main tables for UI compatibility
+      if (contextUrls.length > 0) {
+        await getDb().insert(urls).values(
+          contextUrls.map(url => ({
+            userId: url.userId,
+            url: url.url,
+            title: url.title,
+            notes: url.notes,
+            content: url.content,
+            analysis: url.analysis,
+            createdAt: url.createdAt,
+          }))
+        );
+      }
+      
+      if (contextMessages.length > 0) {
+        await getDb().insert(chatMessages).values(
+          contextMessages.map(message => ({
+            userId: message.userId,
+            content: message.content,
+            role: message.role,
+            createdAt: message.createdAt,
+          }))
+        );
+      }
+      
+      return { urls: contextUrls.length, messages: contextMessages.length };
+    }
   }
 } 

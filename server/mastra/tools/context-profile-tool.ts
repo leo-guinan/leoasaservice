@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getDb } from '../../db';
-import { userContextProfiles, userContextProfileData, users, userContexts, urls, chatMessages } from '@shared/schema';
+import { userContextProfiles, userContextProfileData, users, userContexts, urls, chatMessages, contextUrls, contextChatMessages } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 export const contextProfileTool = createTool({
@@ -30,9 +30,9 @@ export const contextProfileTool = createTool({
       name: z.string(),
       description: z.string().nullable(),
     }).optional(),
-    clearedData: z.object({
-      urls: z.boolean(),
-      chatHistory: z.boolean(),
+    loadedData: z.object({
+      urls: z.number(),
+      chatHistory: z.number(),
     }).optional(),
   }),
   execute: async ({ context }) => {
@@ -216,26 +216,41 @@ export const contextProfileTool = createTool({
               .where(eq(userContextProfiles.id, targetProfile[0].id));
           }
 
-          // Clear URLs and chat history for the user
-          await db
-            .delete(urls)
-            .where(eq(urls.userId, userId));
+          // Get the current active profile to migrate data
+          const currentActiveProfile = await db
+            .select()
+            .from(userContextProfiles)
+            .where(and(
+              eq(userContextProfiles.userId, userId),
+              eq(userContextProfiles.isActive, true)
+            ))
+            .limit(1);
 
-          await db
-            .delete(chatMessages)
-            .where(eq(chatMessages.userId, userId));
+          // Use storage methods for data migration and loading
+          const { storage } = await import('../../storage');
+          
+          // Migrate current data to context-specific tables if switching from an active profile
+          let migratedData = { urls: 0, messages: 0 };
+          if (currentActiveProfile.length > 0) {
+            const currentProfileId = currentActiveProfile[0].id;
+            migratedData = await storage.migrateDataToContext(userId, currentProfileId);
+          }
+
+          // Load context-specific data for the target profile
+          const targetProfileId = targetProfile[0].id;
+          const loadedData = await storage.loadContextData(userId, targetProfileId);
 
           return {
             success: true,
-            message: `Switched to context profile: ${targetProfile[0].name}. URLs and chat history cleared.`,
+            message: `Switched to context profile: ${targetProfile[0].name}. Loaded ${loadedData.urls} URLs and ${loadedData.messages} messages.`,
             activeProfile: {
               id: targetProfile[0].id,
               name: targetProfile[0].name,
               description: targetProfile[0].description,
             },
-            clearedData: {
-              urls: true,
-              chatHistory: true,
+            loadedData: {
+              urls: loadedData.urls,
+              chatHistory: loadedData.messages,
             },
           };
         }

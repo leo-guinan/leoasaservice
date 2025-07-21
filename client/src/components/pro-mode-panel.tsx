@@ -128,15 +128,14 @@ export default function ProModePanel() {
       queryClient.invalidateQueries({ queryKey: ['/api/pro/profiles'] });
       queryClient.invalidateQueries({ queryKey: ['/api/user/context'] });
       
-      // Clear related data if it was cleared on the server
-      if (data.clearedData) {
-        if (data.clearedData.urls) {
-          queryClient.invalidateQueries({ queryKey: ['/api/urls'] });
-        }
-        if (data.clearedData.chatHistory) {
-          queryClient.invalidateQueries({ queryKey: ['/api/chat/messages'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/user/context-summary'] });
-        }
+      // Refresh related data when switching contexts
+      queryClient.invalidateQueries({ queryKey: ['/api/urls'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/chat/messages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/context-summary'] });
+      
+      // Show data loading information
+      if (data.loadedData) {
+        console.log(`Loaded ${data.loadedData.urls} URLs and ${data.loadedData.chatHistory} messages for context`);
       }
       
       toast({

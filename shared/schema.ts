@@ -65,6 +65,29 @@ export const userContextProfileData = pgTable("user_context_profile_data", {
   version: integer("version").notNull().default(1), // Track context versions per profile
 });
 
+// Context-specific URLs for pro mode users
+export const contextUrls = pgTable("context_urls", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull(), // References userContextProfiles.id (0 for default context)
+  userId: integer("user_id").notNull(),
+  url: text("url").notNull(),
+  title: text("title"),
+  notes: text("notes"),
+  content: text("content"), // Store the text content of the page
+  analysis: jsonb("analysis"), // Store AI analysis results
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Context-specific chat messages for pro mode users
+export const contextChatMessages = pgTable("context_chat_messages", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull(), // References userContextProfiles.id (0 for default context)
+  userId: integer("user_id").notNull(),
+  content: text("content").notNull(),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -102,3 +125,5 @@ export type UserContext = typeof userContexts.$inferSelect;
 export type InsertContextProfile = z.infer<typeof insertContextProfileSchema>;
 export type UserContextProfile = typeof userContextProfiles.$inferSelect;
 export type UserContextProfileData = typeof userContextProfileData.$inferSelect;
+export type ContextUrl = typeof contextUrls.$inferSelect;
+export type ContextChatMessage = typeof contextChatMessages.$inferSelect;

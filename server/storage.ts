@@ -1,4 +1,4 @@
-import { users, urls, chatMessages, leoQuestions, userContexts, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, contextUrls, contextChatMessages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type ContextUrl, type ContextChatMessage } from "@shared/schema";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -39,6 +39,14 @@ export interface IStorage {
   // Context methods
   getUserContext(userId: number): Promise<UserContext | undefined>;
   updateUserContext(userId: number, context: any): Promise<UserContext>;
+  
+  // Context-specific data methods (for pro mode)
+  getContextUrls(userId: number, profileId: number): Promise<ContextUrl[]>;
+  createContextUrl(userId: number, profileId: number, url: InsertUrl): Promise<ContextUrl>;
+  getContextChatMessages(userId: number, profileId: number): Promise<ContextChatMessage[]>;
+  createContextChatMessage(userId: number, profileId: number, message: InsertChatMessage): Promise<ContextChatMessage>;
+  migrateDataToContext(userId: number, profileId: number): Promise<{ urls: number; messages: number }>;
+  loadContextData(userId: number, profileId: number): Promise<{ urls: number; messages: number }>;
 }
 
 export class MemStorage implements IStorage {
@@ -257,6 +265,55 @@ export class MemStorage implements IStorage {
     
     this.userContexts.set(userContext.id, userContext);
     return userContext;
+  }
+
+  // Context-specific data methods (for pro mode)
+  async getContextUrls(userId: number, profileId: number): Promise<ContextUrl[]> {
+    // For memory storage, we'll use the main URLs table
+    const urls = await this.getUrls(userId);
+    return urls.map(url => ({
+      ...url,
+      profileId,
+    })) as ContextUrl[];
+  }
+
+  async createContextUrl(userId: number, profileId: number, url: InsertUrl): Promise<ContextUrl> {
+    // For memory storage, we'll use the main URLs table
+    const createdUrl = await this.createUrl(userId, url);
+    return {
+      ...createdUrl,
+      profileId,
+    } as ContextUrl;
+  }
+
+  async getContextChatMessages(userId: number, profileId: number): Promise<ContextChatMessage[]> {
+    // For memory storage, we'll use the main chat messages table
+    const messages = await this.getChatMessages(userId);
+    return messages.map(message => ({
+      ...message,
+      profileId,
+    })) as ContextChatMessage[];
+  }
+
+  async createContextChatMessage(userId: number, profileId: number, message: InsertChatMessage): Promise<ContextChatMessage> {
+    // For memory storage, we'll use the main chat messages table
+    const createdMessage = await this.createChatMessage(userId, message);
+    return {
+      ...createdMessage,
+      profileId,
+    } as ContextChatMessage;
+  }
+
+  async migrateDataToContext(userId: number, profileId: number): Promise<{ urls: number; messages: number }> {
+    // For memory storage, no migration needed
+    return { urls: 0, messages: 0 };
+  }
+
+  async loadContextData(userId: number, profileId: number): Promise<{ urls: number; messages: number }> {
+    // For memory storage, return current data
+    const urls = await this.getUrls(userId);
+    const messages = await this.getChatMessages(userId);
+    return { urls: urls.length, messages: messages.length };
   }
 }
 

@@ -9,8 +9,16 @@ Pro Mode is an advanced feature that allows users to create and manage multiple 
 ### **Multiple Context Profiles**
 - Create unlimited context profiles for different research areas
 - Each profile maintains its own versioned context history
-- Switch between profiles seamlessly
+- Switch between profiles seamlessly with automatic data clearing
 - Profile-specific context updates and management
+- **Default Context**: Always available as the first option in the profile list
+
+### **Context Switching & Data Preservation**
+- **Data Preservation**: URLs and chat history are preserved when switching contexts
+- **Context-Specific Storage**: Each context maintains its own data in separate tables
+- **Seamless Switching**: Data is automatically migrated and loaded when switching profiles
+- **Isolated Research**: Each context shows only its own URLs and chat messages
+- **Daily Summary Updates**: Context summary refreshes when switching profiles
 
 ### **Manual Context Control**
 - Trigger context updates manually when needed
@@ -63,6 +71,33 @@ CREATE TABLE user_context_profile_data (
 );
 ```
 
+#### **Context-Specific URLs Table**
+```sql
+CREATE TABLE context_urls (
+  id SERIAL PRIMARY KEY,
+  profile_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  title TEXT,
+  notes TEXT,
+  content TEXT,
+  analysis JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### **Context-Specific Chat Messages Table**
+```sql
+CREATE TABLE context_chat_messages (
+  id SERIAL PRIMARY KEY,
+  profile_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  role TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
 ### **Backend Components**
 
 #### **Context Profile Tool** (`server/mastra/tools/context-profile-tool.ts`)
@@ -90,6 +125,18 @@ POST /api/pro/profiles
   "profileName": "string",
   "description": "string",
   "profileId": "number"
+}
+```
+
+**Response includes data loading information:**
+```json
+{
+  "success": true,
+  "message": "Switched to context profile: AI Research. Loaded 5 URLs and 12 messages.",
+  "loadedData": {
+    "urls": 5,
+    "chatHistory": 12
+  }
 }
 ```
 
@@ -230,10 +277,14 @@ npm run test:pro-mode
 2. Login and verify Pro Mode toggle button appears
 3. Click toggle to enable pro mode
 4. Create multiple profiles
-5. Switch between profiles
-6. Test manual context updates
-7. Verify chat uses correct profile context
-8. Test disabling pro mode and re-enabling
+5. Add URLs and chat messages to one profile
+6. Switch to another profile (verify data is preserved and loaded)
+7. Add new URLs and chat messages to the new profile
+8. Switch back to first profile (verify original data is restored)
+9. Test manual context updates
+10. Verify chat uses correct profile context
+11. Test switching to default context
+12. Test disabling pro mode and re-enabling
 
 ## 🔒 Security & Validation
 
@@ -318,6 +369,18 @@ npm run test:pro-mode
 
 # Test toggle functionality
 npm run test:pro-toggle
+
+# Test context switching functionality
+npm run test:context-switching
+
+# Test context-specific data functionality
+npm run test:context-specific-data
+
+# Set up context-specific tables
+npm run setup-context-tables
+
+# Clean up test profiles
+npm run cleanup-pro-profiles
 
 # Check database state
 # (Use your preferred database client)
