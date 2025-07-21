@@ -803,6 +803,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get daily context summary
+  app.get("/api/user/context-summary/:date", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { date } = req.params;
+      const { contextSummaryTool } = await import('./mastra/tools/context-summary-tool.js');
+      
+      const result = await contextSummaryTool.execute({
+        context: {
+          userId: req.user!.id,
+          date: date,
+        },
+      } as any);
+      
+      res.json({
+        success: true,
+        summary: result
+      });
+    } catch (error) {
+      console.error('Error generating context summary:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate context summary',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Test route to manually trigger context generation
   app.post("/api/test/context", authenticateToken, async (req: AuthRequest, res) => {
     try {

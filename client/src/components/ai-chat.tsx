@@ -8,10 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChatMessage } from "@shared/schema";
 import { Markdown } from "@/components/ui/markdown";
+import DailyContextSummary from "@/components/daily-context-summary";
 
 export default function AiChat() {
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showDailySummary, setShowDailySummary] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -195,6 +197,13 @@ export default function AiChat() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Daily Context Summary */}
+        {showDailySummary && (
+          <DailyContextSummary 
+            onDismiss={() => setShowDailySummary(false)}
+          />
+        )}
+        
         {messages.length === 0 ? (
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
