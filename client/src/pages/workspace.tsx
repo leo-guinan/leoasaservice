@@ -5,6 +5,7 @@ import AskLeo from "@/components/ask-leo";
 import AdminDashboard from "@/components/admin-dashboard";
 import AuthForm from "@/components/auth-form";
 import ProModePanel from "@/components/pro-mode-panel";
+import ProModeToggle from "@/components/pro-mode-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { getCalApi } from "@calcom/embed-react";
@@ -38,6 +39,7 @@ export default function Workspace() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-sm text-slate-600">Welcome back, {user?.username}</div>
+            <ProModeToggle />
             <ProModePanel />
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <User className="text-slate-600" size={16} />

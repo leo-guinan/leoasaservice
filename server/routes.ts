@@ -918,6 +918,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pro Mode: Toggle pro mode status
+  app.post("/api/pro/toggle", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { getDb } = await import('./db.js');
+      const { users } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const db = getDb();
+      
+      // Get current pro mode status
+      const currentUser = await db
+        .select({ proMode: users.proMode })
+        .from(users)
+        .where(eq(users.id, req.user!.id))
+        .limit(1);
+
+      if (currentUser.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Toggle the pro mode status
+      const newProModeStatus = !currentUser[0].proMode;
+      
+      await db
+        .update(users)
+        .set({ proMode: newProModeStatus })
+        .where(eq(users.id, req.user!.id));
+
+      res.json({
+        success: true,
+        proMode: newProModeStatus,
+        message: `Pro mode ${newProModeStatus ? 'enabled' : 'disabled'} successfully`
+      });
+    } catch (error) {
+      console.error('Error toggling pro mode:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to toggle pro mode',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Test route to manually trigger context generation
   app.post("/api/test/context", authenticateToken, async (req: AuthRequest, res) => {
     try {

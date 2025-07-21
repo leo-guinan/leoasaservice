@@ -108,6 +108,11 @@ POST /api/pro/context-update
 GET /api/pro/status
 ```
 
+#### **Toggle Pro Mode**
+```http
+POST /api/pro/toggle
+```
+
 ### **Frontend Components**
 
 #### **Pro Mode Panel** (`client/src/components/pro-mode-panel.tsx`)
@@ -117,14 +122,25 @@ GET /api/pro/status
 - **Responsive Design**: Works on all screen sizes
 
 #### **Integration Points**
-- **Workspace Header**: Pro Mode button for easy access
+- **Workspace Header**: Pro Mode toggle button and panel for easy access
 - **Conditional Rendering**: Only shows for pro mode users
 - **State Management**: React Query for server state synchronization
+- **User Self-Service**: Users can enable/disable pro mode themselves
 
 ## 🎮 Usage Guide
 
 ### **Enabling Pro Mode**
 
+#### **Option 1: User Self-Service (Recommended)**
+1. **Click the toggle button** in the workspace header
+   - Shows "Enable Pro" when disabled
+   - Shows "Pro Mode" when enabled
+2. **Visual feedback**:
+   - Button changes color and text
+   - Toast notification confirms the change
+   - Pro Mode panel appears/disappears automatically
+
+#### **Option 2: Admin Command**
 1. **Enable for a user**:
    ```bash
    npm run enable-pro-mode
@@ -211,11 +227,13 @@ npm run test:pro-mode
 
 ### **Manual Testing Steps**
 1. Start server: `npm run dev`
-2. Login and verify Pro Mode button appears
-3. Create multiple profiles
-4. Switch between profiles
-5. Test manual context updates
-6. Verify chat uses correct profile context
+2. Login and verify Pro Mode toggle button appears
+3. Click toggle to enable pro mode
+4. Create multiple profiles
+5. Switch between profiles
+6. Test manual context updates
+7. Verify chat uses correct profile context
+8. Test disabling pro mode and re-enabling
 
 ## 🔒 Security & Validation
 
@@ -297,6 +315,9 @@ npm run enable-pro-mode
 
 # Test full functionality
 npm run test:pro-mode
+
+# Test toggle functionality
+npm run test:pro-toggle
 
 # Check database state
 # (Use your preferred database client)

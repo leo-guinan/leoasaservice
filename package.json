@@ -31,7 +31,9 @@
     "test:daily-summary": "tsx scripts/test-daily-summary.ts",
     "demo:improved-summary": "tsx scripts/demo-improved-summary.ts",
     "enable-pro-mode": "tsx scripts/enable-pro-mode.ts",
-    "test:pro-mode": "tsx scripts/test-pro-mode.ts"
+    "test:pro-mode": "tsx scripts/test-pro-mode.ts",
+    "test:pro-toggle": "tsx scripts/test-pro-toggle.ts",
+    "cleanup-pro-profiles": "tsx scripts/cleanup-pro-profiles.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.23",
