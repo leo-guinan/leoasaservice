@@ -28,7 +28,8 @@
     "context:update:month": "tsx scripts/update-all-contexts.ts --start $(date -v-30d +%Y-%m-%d) --end $(date +%Y-%m-%d)",
     "test:context-chat": "tsx scripts/test-context-chat.ts",
     "demo:markdown": "tsx scripts/demo-markdown.ts",
-    "test:daily-summary": "tsx scripts/test-daily-summary.ts"
+    "test:daily-summary": "tsx scripts/test-daily-summary.ts",
+    "demo:improved-summary": "tsx scripts/demo-improved-summary.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.23",

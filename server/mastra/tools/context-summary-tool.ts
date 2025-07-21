@@ -57,45 +57,70 @@ export const contextSummaryTool = createTool({
         const prev = previousContext[0].context as any;
         const curr = currentContext[0].context as any;
         
-        summary = `**Research Context Update Summary**\n\nYour research context has been updated. Here are the changes from version ${previousContext[0].version} to version ${currentContext[0].version}:`;
+        summary = `**Research Context Updated**\n\nBased on your recent activity, I've updated your research profile:`;
         
         // Compare research interests
         const prevInterests = prev.researchInterests || [];
         const currInterests = curr.researchInterests || [];
         if (JSON.stringify(prevInterests) !== JSON.stringify(currInterests)) {
-          changes.push(`**Research Interests**: ${prevInterests.length} → ${currInterests.length} items`);
+          const newInterests = currInterests.filter((interest: string) => !prevInterests.includes(interest));
+          const removedInterests = prevInterests.filter((interest: string) => !currInterests.includes(interest));
+          
+          if (newInterests.length > 0) {
+            changes.push(`**Added research interests**: ${newInterests.join(', ')}`);
+          }
+          if (removedInterests.length > 0) {
+            changes.push(`**Removed research interests**: ${removedInterests.join(', ')}`);
+          }
         }
         
         // Compare current projects
         const prevProjects = prev.currentProjects || [];
         const currProjects = curr.currentProjects || [];
         if (JSON.stringify(prevProjects) !== JSON.stringify(currProjects)) {
-          changes.push(`**Current Projects**: ${prevProjects.length} → ${currProjects.length} items`);
+          const newProjects = currProjects.filter((project: string) => !prevProjects.includes(project));
+          const removedProjects = prevProjects.filter((project: string) => !currProjects.includes(project));
+          
+          if (newProjects.length > 0) {
+            changes.push(`**Started new projects**: ${newProjects.join(', ')}`);
+          }
+          if (removedProjects.length > 0) {
+            changes.push(`**Completed projects**: ${removedProjects.join(', ')}`);
+          }
         }
         
         // Compare knowledge areas
         const prevKnowledge = prev.knowledgeAreas || [];
         const currKnowledge = curr.knowledgeAreas || [];
         if (JSON.stringify(prevKnowledge) !== JSON.stringify(currKnowledge)) {
-          changes.push(`**Knowledge Areas**: ${prevKnowledge.length} → ${currKnowledge.length} items`);
+          const newKnowledge = currKnowledge.filter((area: string) => !prevKnowledge.includes(area));
+          if (newKnowledge.length > 0) {
+            changes.push(`**Expanded knowledge in**: ${newKnowledge.join(', ')}`);
+          }
         }
         
         // Compare recent insights
         const prevInsights = prev.recentInsights || [];
         const currInsights = curr.recentInsights || [];
         if (JSON.stringify(prevInsights) !== JSON.stringify(currInsights)) {
-          changes.push(`**Recent Insights**: ${prevInsights.length} → ${currInsights.length} items`);
+          const newInsights = currInsights.filter((insight: string) => !prevInsights.includes(insight));
+          if (newInsights.length > 0) {
+            changes.push(`**New insights**: ${newInsights.slice(0, 2).join('; ')}${newInsights.length > 2 ? '...' : ''}`);
+          }
         }
         
         // Compare research patterns
         const prevPatterns = prev.researchPatterns || [];
         const currPatterns = curr.researchPatterns || [];
         if (JSON.stringify(prevPatterns) !== JSON.stringify(currPatterns)) {
-          changes.push(`**Research Patterns**: ${prevPatterns.length} → ${currPatterns.length} items`);
+          const newPatterns = currPatterns.filter((pattern: string) => !prevPatterns.includes(pattern));
+          if (newPatterns.length > 0) {
+            changes.push(`**New research patterns**: ${newPatterns.join(', ')}`);
+          }
         }
         
         if (changes.length === 0) {
-          changes.push('Minor updates or refinements to existing context');
+          changes.push('Minor refinements to your research profile');
         }
       }
 

@@ -4,12 +4,12 @@ The daily context summary feature provides users with a comprehensive overview o
 
 ## 🎯 Overview
 
-Each day, users see a summary of their research context changes at the top of the chat interface. This includes:
+Each day, users see a concise summary of their research context changes at the top of the chat interface. This includes:
 
-- **Previous vs Current Context**: Side-by-side comparison of context versions
-- **Change Detection**: Automatic identification of what changed
-- **User Feedback**: Ability to approve or request corrections
+- **Meaningful Change Detection**: Specific additions, removals, and updates to research areas
+- **Clear Language**: Human-readable descriptions of what changed
 - **Markdown Formatting**: Rich, readable presentation of changes
+- **Automatic Integration**: User feedback through chat messages is incorporated into future updates
 
 ## 🚀 Features
 
@@ -19,17 +19,17 @@ Each day, users see a summary of their research context changes at the top of th
 - Highlights specific additions, removals, and modifications
 
 ### **Change Detection**
-- **Research Interests**: Tracks changes in focus areas
-- **Current Projects**: Monitors active research initiatives
-- **Knowledge Areas**: Shows evolving expertise
-- **Recent Insights**: Captures new understandings
-- **Research Patterns**: Identifies behavioral changes
+- **Added/Removed Research Interests**: Shows new focus areas or completed topics
+- **Started/Completed Projects**: Tracks active research initiatives
+- **Expanded Knowledge Areas**: Shows new areas of expertise
+- **New Insights**: Captures key understandings and discoveries
+- **New Research Patterns**: Identifies evolving research behaviors
 
 ### **User Interface**
 - **Dismissible Banner**: Users can close the summary
 - **Refresh Capability**: Reload the summary if needed
-- **Feedback Buttons**: "Looks Good" or "Needs Correction"
 - **Visual Indicators**: Color-coded sections for easy scanning
+- **Clean Design**: Focused on the essential information
 
 ### **Responsive Design**
 - Works on desktop and mobile devices
@@ -54,9 +54,9 @@ Each day, users see a summary of their research context changes at the top of th
 - Can be dismissed or refreshed as needed
 
 ### **4. User Feedback**
-- Users can approve the changes or request corrections
-- Feedback is logged for potential future improvements
-- Toast notifications confirm user actions
+- Users can provide feedback through normal chat messages
+- Any corrections or clarifications are automatically incorporated into future context updates
+- No separate feedback mechanism needed - natural conversation flow
 
 ## 🔧 Technical Implementation
 
@@ -111,33 +111,15 @@ app.get("/api/user/context-summary/:date", authenticateToken, async (req: AuthRe
 ```
 📅 Daily Context Summary - 7/21/2025
 
-**Research Context Update Summary**
+**Research Context Updated**
 
-Your research context has been updated. Here are the changes from version 9 to version 10:
+Based on your recent activity, I've updated your research profile:
 
-**Changes Detected:**
-✅ **Research Interests**: 5 → 5 items
-✅ **Current Projects**: 4 → 5 items  
-✅ **Knowledge Areas**: 5 → 5 items
-✅ **Recent Insights**: 3 → 4 items
-✅ **Research Patterns**: 4 → 5 items
-
-**Context Comparison:**
-Previous Context:
-- Research Interests: 5 items
-- Current Projects: 4 items
-- Knowledge Areas: 5 items
-- Recent Insights: 3 items
-- Research Patterns: 4 items
-
-Current Context:
-- Research Interests: 5 items
-- Current Projects: 5 items
-- Knowledge Areas: 5 items
-- Recent Insights: 4 items
-- Research Patterns: 5 items
-
-[Looks Good] [Needs Correction]
+✅ **Added research interests**: blockchain applications in healthcare, zero-knowledge proofs
+✅ **Started new projects**: implementing blockchain for patient data privacy
+✅ **Expanded knowledge in**: privacy techniques for medical data
+✅ **New insights**: Machine learning is crucial for healthcare advancements; Zero-knowledge proofs offer advanced privacy for medical data
+✅ **New research patterns**: emerging interest in privacy-enhancing technologies
 ```
 
 ## 🧪 Testing

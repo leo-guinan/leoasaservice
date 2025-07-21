@@ -151,89 +151,16 @@ export default function DailyContextSummary({
 
         {/* Changes */}
         {summary.changes.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-blue-800 mb-2">Changes Detected:</h4>
-            <ul className="space-y-1">
-              {summary.changes.map((change, index) => (
-                <li key={index} className="text-sm text-blue-700 flex items-start gap-2">
-                  <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>{change}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="space-y-1">
+            {summary.changes.map((change, index) => (
+              <li key={index} className="text-sm text-blue-700 flex items-start gap-2">
+                <CheckCircle className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                <span>{change}</span>
+              </li>
+            ))}
+          </ul>
         )}
 
-        {/* Context Comparison */}
-        {summary.hasPreviousContext && summary.hasCurrentContext && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-blue-800">Context Comparison:</h4>
-            
-            {/* Previous Context */}
-            <div className="bg-white rounded border border-blue-100 p-3">
-              <h5 className="text-xs font-medium text-gray-600 mb-2">Previous Context:</h5>
-              <div className="text-xs text-gray-700 space-y-1">
-                {summary.previousContext && (
-                  <>
-                    <div><strong>Research Interests:</strong> {summary.previousContext.researchInterests?.length || 0} items</div>
-                    <div><strong>Current Projects:</strong> {summary.previousContext.currentProjects?.length || 0} items</div>
-                    <div><strong>Knowledge Areas:</strong> {summary.previousContext.knowledgeAreas?.length || 0} items</div>
-                    <div><strong>Recent Insights:</strong> {summary.previousContext.recentInsights?.length || 0} items</div>
-                    <div><strong>Research Patterns:</strong> {summary.previousContext.researchPatterns?.length || 0} items</div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Current Context */}
-            <div className="bg-blue-50 rounded border border-blue-200 p-3">
-              <h5 className="text-xs font-medium text-blue-700 mb-2">Current Context:</h5>
-              <div className="text-xs text-blue-800 space-y-1">
-                {summary.currentContext && (
-                  <>
-                    <div><strong>Research Interests:</strong> {summary.currentContext.researchInterests?.length || 0} items</div>
-                    <div><strong>Current Projects:</strong> {summary.currentContext.currentProjects?.length || 0} items</div>
-                    <div><strong>Knowledge Areas:</strong> {summary.currentContext.knowledgeAreas?.length || 0} items</div>
-                    <div><strong>Recent Insights:</strong> {summary.currentContext.recentInsights?.length || 0} items</div>
-                    <div><strong>Research Patterns:</strong> {summary.currentContext.researchPatterns?.length || 0} items</div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 pt-2 border-t border-blue-200">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              toast({
-                title: "Feedback Received",
-                description: "Thank you for your feedback! We'll use this to improve your context.",
-              });
-              handleDismiss();
-            }}
-            className="text-blue-600 border-blue-300 hover:bg-blue-50"
-          >
-            Looks Good
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              toast({
-                title: "Correction Requested",
-                description: "We'll review and update your context based on your feedback.",
-              });
-              handleDismiss();
-            }}
-            className="text-orange-600 border-orange-300 hover:bg-orange-50"
-          >
-            Needs Correction
-          </Button>
-        </div>
       </div>
     </div>
   );
