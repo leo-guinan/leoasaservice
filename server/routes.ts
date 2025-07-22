@@ -10,7 +10,13 @@ import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
 import { testRedisConnection } from "@shared/redis";
 import { upload, uploadFileToS3, isS3Configured } from "./s3";
 import puppeteer, { Browser } from "puppeteer";
-import sharp from "sharp";
+// Optional sharp import for image optimization
+let sharp: any = null;
+try {
+  sharp = require("sharp");
+} catch (error) {
+  console.warn("Sharp not available for image optimization:", error instanceof Error ? error.message : 'Unknown error');
+}
 import { getUserContext, createContextAwarePrompt } from "./mastra/agents/chat-agent";
 
 // Convert PDF pages to images and extract text using GPT-4o vision
@@ -76,11 +82,16 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
           fullPage: true
         });
         
-        // Optimize image
-        const optimizedBuffer = await sharp(screenshot)
-          .resize(1200, 1600, { fit: 'inside', withoutEnlargement: true })
-          .png({ quality: 90 })
-          .toBuffer();
+        // Optimize image if sharp is available, otherwise use original
+        let optimizedBuffer: Buffer;
+        if (sharp) {
+          optimizedBuffer = await sharp(screenshot)
+            .resize(1200, 1600, { fit: 'inside', withoutEnlargement: true })
+            .png({ quality: 90 })
+            .toBuffer();
+        } else {
+          optimizedBuffer = Buffer.from(screenshot);
+        }
         
         // Convert to base64 for OpenAI API
         const base64Image = optimizedBuffer.toString('base64');
