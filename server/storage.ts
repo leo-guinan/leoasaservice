@@ -318,14 +318,24 @@ export class MemStorage implements IStorage {
 }
 
 import { PostgresStorage } from "./postgres-storage";
+import { createChromaStorage, type IChromaStorage } from "./chroma-storage";
 
 // Factory function to create the appropriate storage instance
 export function createStorage(): IStorage {
   // Use PostgreSQL if DATABASE_URL is available, otherwise use memory storage
+  let baseStorage: IStorage;
   if (process.env.DATABASE_URL) {
-    return new PostgresStorage();
+    baseStorage = new PostgresStorage();
+  } else {
+    baseStorage = new MemStorage();
   }
-  return new MemStorage();
+  
+  // Wrap with ChromaDB enhancement if ChromaDB is configured
+  if (process.env.CHROMA_API_KEY) {
+    return createChromaStorage(baseStorage);
+  }
+  
+  return baseStorage;
 }
 
 export const storage = createStorage();

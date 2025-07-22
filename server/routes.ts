@@ -994,6 +994,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ChromaDB Search Endpoints
+  app.get("/api/search/chat", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { query, limit = 10 } = req.query;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      // Check if storage has ChromaDB capabilities
+      if ('searchChatMessages' in storage) {
+        const results = await (storage as any).searchChatMessages(req.user!.id, query, parseInt(limit as string));
+        res.json(results);
+      } else {
+        res.status(501).json({ message: "ChromaDB search not available" });
+      }
+    } catch (error) {
+      console.error('ChromaDB chat search error:', error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/search/urls", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { query, limit = 10 } = req.query;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      // Check if storage has ChromaDB capabilities
+      if ('searchUrlContent' in storage) {
+        const results = await (storage as any).searchUrlContent(req.user!.id, query, parseInt(limit as string));
+        res.json(results);
+      } else {
+        res.status(501).json({ message: "ChromaDB search not available" });
+      }
+    } catch (error) {
+      console.error('ChromaDB URL search error:', error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/search/analysis", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { query, limit = 10 } = req.query;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      // Check if storage has ChromaDB capabilities
+      if ('searchUrlAnalysis' in storage) {
+        const results = await (storage as any).searchUrlAnalysis(req.user!.id, query, parseInt(limit as string));
+        res.json(results);
+      } else {
+        res.status(501).json({ message: "ChromaDB search not available" });
+      }
+    } catch (error) {
+      console.error('ChromaDB analysis search error:', error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/search/all", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { query, limit = 5 } = req.query;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Query parameter is required" });
+      }
+
+      // Check if storage has ChromaDB capabilities
+      if ('searchAll' in storage) {
+        const results = await (storage as any).searchAll(req.user!.id, query, parseInt(limit as string));
+        res.json(results);
+      } else {
+        res.status(501).json({ message: "ChromaDB search not available" });
+      }
+    } catch (error) {
+      console.error('ChromaDB all search error:', error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  // ChromaDB Health Check
+  app.get("/api/chroma/health", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { chromaService } = await import('./chroma.js');
+      const isHealthy = await chromaService.healthCheck();
+      
+      if (isHealthy) {
+        res.json({ status: 'healthy', message: 'ChromaDB is operational' });
+      } else {
+        res.status(503).json({ status: 'unhealthy', message: 'ChromaDB is not responding' });
+      }
+    } catch (error) {
+      console.error('ChromaDB health check error:', error);
+      res.status(503).json({ status: 'error', message: 'ChromaDB health check failed' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
