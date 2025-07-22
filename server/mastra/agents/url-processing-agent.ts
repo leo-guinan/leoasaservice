@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
+
 import { leafUrlProcessingTool } from '../tools/leaf-url-processing-tool';
 import { rootUrlProcessingTool } from '../tools/root-url-processing-tool';
 
@@ -40,9 +40,5 @@ export const urlProcessingAgent = new Agent({
     leafUrlProcessingTool,
     rootUrlProcessingTool
   },
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db',
-    }),
-  }),
+  memory: new Memory(),
 }); 

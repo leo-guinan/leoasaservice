@@ -1,7 +1,6 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
 import { getDb } from '../../db';
 import { userContexts, users, userContextProfiles, userContextProfileData } from '@shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
@@ -22,11 +21,7 @@ export const chatAgent = new Agent({
     - Provide actionable insights and recommendations
   `,
   model: openai('gpt-4o'),
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db',
-    }),
-  }),
+  memory: new Memory(),
 });
 
 // Function to get user's most recent context

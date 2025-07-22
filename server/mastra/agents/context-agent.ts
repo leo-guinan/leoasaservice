@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
+
 import { contextUpdateTool } from '../tools/context-update-tool';
 import { userActivityTool } from '../tools/user-activity-tool';
 
@@ -29,9 +29,5 @@ export const contextAgent = new Agent({
 `,
   model: openai('gpt-4o-mini'),
   tools: { contextUpdateTool, userActivityTool },
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db', // path is relative to the .mastra/output directory
-    }),
-  }),
+  memory: new Memory(),
 }); 

@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
+
 import { userActivityTool } from '../tools/user-activity-tool';
 
 export const userActivityAgent = new Agent({
@@ -23,9 +23,5 @@ export const userActivityAgent = new Agent({
 `,
   model: openai('gpt-4o-mini'),
   tools: { userActivityTool },
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db', // path is relative to the .mastra/output directory
-    }),
-  }),
+  memory: new Memory(),
 }); 

@@ -1,7 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
+
 import { contextSummaryTool } from '../tools/context-summary-tool';
 
 export const contextSummaryAgent = new Agent({
@@ -23,10 +23,6 @@ export const contextSummaryAgent = new Agent({
     - Encourage user feedback and corrections
   `,
   model: openai('gpt-4o'),
-  memory: new Memory({
-    storage: new LibSQLStore({
-      url: 'file:../mastra.db',
-    }),
-  }),
+  memory: new Memory(),
   tools: { contextSummaryTool },
 }); 
