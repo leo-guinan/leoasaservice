@@ -1,4 +1,4 @@
-import { users, urls, chatMessages, leoQuestions, userContexts, contextUrls, contextChatMessages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type ContextUrl, type ContextChatMessage } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, contextUrls, contextChatMessages, rssFeeds, rssFeedItems, crawlerJobs, crawlerPages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type ContextUrl, type ContextChatMessage, type RssFeed, type InsertRssFeed, type RssFeedItem, type CrawlerJob, type InsertCrawlerJob, type CrawlerPage } from "@shared/schema";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -47,6 +47,32 @@ export interface IStorage {
   createContextChatMessage(userId: number, profileId: number, message: InsertChatMessage): Promise<ContextChatMessage>;
   migrateDataToContext(userId: number, profileId: number): Promise<{ urls: number; messages: number }>;
   loadContextData(userId: number, profileId: number): Promise<{ urls: number; messages: number }>;
+  
+  // RSS Feed methods
+  getRssFeeds(userId: number): Promise<RssFeed[]>;
+  createRssFeed(userId: number, feed: InsertRssFeed): Promise<RssFeed>;
+  updateRssFeed(id: number, userId: number, updates: Partial<RssFeed>): Promise<RssFeed | undefined>;
+  updateRssFeedLastFetched(id: number): Promise<void>;
+  updateRssFeedMetadata(id: number, updates: { lastFetched?: Date; lastItemDate?: Date }): Promise<void>;
+  deleteRssFeed(id: number, userId: number): Promise<boolean>;
+  
+  // RSS Feed Item methods
+  getRssFeedItems(userId: number, feedId?: number): Promise<RssFeedItem[]>;
+  createRssFeedItem(item: Omit<RssFeedItem, 'id' | 'createdAt'>): Promise<RssFeedItem>;
+  updateRssFeedItem(id: number, updates: Partial<RssFeedItem>): Promise<RssFeedItem | undefined>;
+  deleteRssFeedItem(id: number, userId: number): Promise<boolean>;
+  
+  // Crawler methods
+  getCrawlerJobs(userId: number): Promise<CrawlerJob[]>;
+  createCrawlerJob(userId: number, job: InsertCrawlerJob): Promise<CrawlerJob>;
+  updateCrawlerJob(id: number, userId: number, updates: Partial<CrawlerJob>): Promise<CrawlerJob | undefined>;
+  deleteCrawlerJob(id: number, userId: number): Promise<boolean>;
+  
+  // Crawler Page methods
+  getCrawlerPages(jobId: number): Promise<CrawlerPage[]>;
+  createCrawlerPage(page: Omit<CrawlerPage, 'id' | 'createdAt'>): Promise<CrawlerPage>;
+  updateCrawlerPage(id: number, updates: Partial<CrawlerPage>): Promise<CrawlerPage | undefined>;
+  deleteCrawlerPage(id: number, jobId: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -314,6 +340,194 @@ export class MemStorage implements IStorage {
     const urls = await this.getUrls(userId);
     const messages = await this.getChatMessages(userId);
     return { urls: urls.length, messages: messages.length };
+  }
+
+  // RSS Feed methods - Memory storage implementation
+  private rssFeeds: Map<number, RssFeed> = new Map();
+  private rssFeedItems: Map<number, RssFeedItem> = new Map();
+  private crawlerJobs: Map<number, CrawlerJob> = new Map();
+  private crawlerPages: Map<number, CrawlerPage> = new Map();
+  private currentRssFeedId: number = 1;
+  private currentRssFeedItemId: number = 1;
+  private currentCrawlerJobId: number = 1;
+  private currentCrawlerPageId: number = 1;
+
+  async getRssFeeds(userId: number): Promise<RssFeed[]> {
+    return Array.from(this.rssFeeds.values()).filter(feed => feed.userId === userId);
+  }
+
+  async createRssFeed(userId: number, feed: InsertRssFeed): Promise<RssFeed> {
+    const id = this.currentRssFeedId++;
+    const rssFeed: RssFeed = {
+      id,
+      userId,
+      profileId: feed.profileId || 0,
+      feedUrl: feed.feedUrl,
+      title: feed.title,
+      description: feed.description,
+      lastFetched: null,
+      lastItemDate: null,
+      isActive: true,
+      fetchInterval: feed.fetchInterval || 1440,
+      maxItemsPerFetch: feed.maxItemsPerFetch || 50,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.rssFeeds.set(id, rssFeed);
+    return rssFeed;
+  }
+
+  async updateRssFeed(id: number, userId: number, updates: Partial<RssFeed>): Promise<RssFeed | undefined> {
+    const feed = this.rssFeeds.get(id);
+    if (feed && feed.userId === userId) {
+      const updatedFeed = { ...feed, ...updates, updatedAt: new Date() };
+      this.rssFeeds.set(id, updatedFeed);
+      return updatedFeed;
+    }
+    return undefined;
+  }
+
+  async updateRssFeedLastFetched(id: number): Promise<void> {
+    const feed = this.rssFeeds.get(id);
+    if (feed) {
+      feed.lastFetched = new Date();
+      feed.updatedAt = new Date();
+    }
+  }
+
+  async updateRssFeedMetadata(id: number, updates: { lastFetched?: Date; lastItemDate?: Date }): Promise<void> {
+    const feed = this.rssFeeds.get(id);
+    if (feed) {
+      if (updates.lastFetched) feed.lastFetched = updates.lastFetched;
+      if (updates.lastItemDate) feed.lastItemDate = updates.lastItemDate;
+      feed.updatedAt = new Date();
+    }
+  }
+
+  async deleteRssFeed(id: number, userId: number): Promise<boolean> {
+    const feed = this.rssFeeds.get(id);
+    if (feed && feed.userId === userId) {
+      this.rssFeeds.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  async getRssFeedItems(userId: number, feedId?: number): Promise<RssFeedItem[]> {
+    let items = Array.from(this.rssFeedItems.values()).filter(item => item.userId === userId);
+    if (feedId) {
+      items = items.filter(item => item.feedId === feedId);
+    }
+    return items;
+  }
+
+  async createRssFeedItem(item: Omit<RssFeedItem, 'id' | 'createdAt'>): Promise<RssFeedItem> {
+    const id = this.currentRssFeedItemId++;
+    const rssFeedItem: RssFeedItem = {
+      id,
+      ...item,
+      createdAt: new Date(),
+    };
+    this.rssFeedItems.set(id, rssFeedItem);
+    return rssFeedItem;
+  }
+
+  async updateRssFeedItem(id: number, updates: Partial<RssFeedItem>): Promise<RssFeedItem | undefined> {
+    const item = this.rssFeedItems.get(id);
+    if (item) {
+      const updatedItem = { ...item, ...updates };
+      this.rssFeedItems.set(id, updatedItem);
+      return updatedItem;
+    }
+    return undefined;
+  }
+
+  async deleteRssFeedItem(id: number, userId: number): Promise<boolean> {
+    const item = this.rssFeedItems.get(id);
+    if (item && item.userId === userId) {
+      this.rssFeedItems.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  async getCrawlerJobs(userId: number): Promise<CrawlerJob[]> {
+    return Array.from(this.crawlerJobs.values()).filter(job => job.userId === userId);
+  }
+
+  async createCrawlerJob(userId: number, job: InsertCrawlerJob): Promise<CrawlerJob> {
+    const id = this.currentCrawlerJobId++;
+    const crawlerJob: CrawlerJob = {
+      id,
+      userId,
+      profileId: job.profileId || 0,
+      rootUrl: job.rootUrl,
+      status: 'pending',
+      maxPages: job.maxPages || 100,
+      pagesDiscovered: 0,
+      pagesProcessed: 0,
+      pagesAnalyzed: 0,
+      startedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.crawlerJobs.set(id, crawlerJob);
+    return crawlerJob;
+  }
+
+  async updateCrawlerJob(id: number, userId: number, updates: Partial<CrawlerJob>): Promise<CrawlerJob | undefined> {
+    const job = this.crawlerJobs.get(id);
+    if (job && job.userId === userId) {
+      const updatedJob = { ...job, ...updates, updatedAt: new Date() };
+      this.crawlerJobs.set(id, updatedJob);
+      return updatedJob;
+    }
+    return undefined;
+  }
+
+  async deleteCrawlerJob(id: number, userId: number): Promise<boolean> {
+    const job = this.crawlerJobs.get(id);
+    if (job && job.userId === userId) {
+      this.crawlerJobs.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  async getCrawlerPages(jobId: number): Promise<CrawlerPage[]> {
+    return Array.from(this.crawlerPages.values()).filter(page => page.jobId === jobId);
+  }
+
+  async createCrawlerPage(page: Omit<CrawlerPage, 'id' | 'createdAt'>): Promise<CrawlerPage> {
+    const id = this.currentCrawlerPageId++;
+    const crawlerPage: CrawlerPage = {
+      id,
+      ...page,
+      createdAt: new Date(),
+    };
+    this.crawlerPages.set(id, crawlerPage);
+    return crawlerPage;
+  }
+
+  async updateCrawlerPage(id: number, updates: Partial<CrawlerPage>): Promise<CrawlerPage | undefined> {
+    const page = this.crawlerPages.get(id);
+    if (page) {
+      const updatedPage = { ...page, ...updates };
+      this.crawlerPages.set(id, updatedPage);
+      return updatedPage;
+    }
+    return undefined;
+  }
+
+  async deleteCrawlerPage(id: number, jobId: number): Promise<boolean> {
+    const page = this.crawlerPages.get(id);
+    if (page && page.jobId === jobId) {
+      this.crawlerPages.delete(id);
+      return true;
+    }
+    return false;
   }
 }
 

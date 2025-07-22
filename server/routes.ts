@@ -1079,6 +1079,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RSS Feed endpoints
+  app.get("/api/rss/feeds", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const feeds = await storage.getRssFeeds(req.user!.id);
+      res.json(feeds);
+    } catch (error) {
+      console.error('Get RSS feeds error:', error);
+      res.status(500).json({ message: 'Failed to get RSS feeds' });
+    }
+  });
+
+  app.post("/api/rss/feeds", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { feedUrl, title, description, profileId = 0, fetchInterval = 1440, maxItemsPerFetch = 50 } = req.body;
+      
+      if (!feedUrl) {
+        return res.status(400).json({ message: 'Feed URL is required' });
+      }
+      
+      const feed = await storage.createRssFeed(req.user!.id, {
+        feedUrl,
+        title,
+        description,
+        profileId,
+        fetchInterval,
+        maxItemsPerFetch
+      });
+      
+      res.json(feed);
+    } catch (error) {
+      console.error('Create RSS feed error:', error);
+      res.status(500).json({ message: 'Failed to create RSS feed' });
+    }
+  });
+
+  app.put("/api/rss/feeds/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const feedId = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const updatedFeed = await storage.updateRssFeed(feedId, req.user!.id, updates);
+      if (!updatedFeed) {
+        return res.status(404).json({ message: 'RSS feed not found' });
+      }
+      
+      res.json(updatedFeed);
+    } catch (error) {
+      console.error('Update RSS feed error:', error);
+      res.status(500).json({ message: 'Failed to update RSS feed' });
+    }
+  });
+
+  app.delete("/api/rss/feeds/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const feedId = parseInt(req.params.id);
+      
+      const success = await storage.deleteRssFeed(feedId, req.user!.id);
+      if (!success) {
+        return res.status(404).json({ message: 'RSS feed not found' });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete RSS feed error:', error);
+      res.status(500).json({ message: 'Failed to delete RSS feed' });
+    }
+  });
+
+  app.get("/api/rss/items", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { feedId } = req.query;
+      
+      const items = await storage.getRssFeedItems(req.user!.id, feedId ? parseInt(feedId as string) : undefined);
+      res.json(items);
+    } catch (error) {
+      console.error('Get RSS items error:', error);
+      res.status(500).json({ message: 'Failed to get RSS items' });
+    }
+  });
+
+  app.post("/api/rss/process", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { feedId } = req.body;
+      
+      const { rssService } = await import('./rss-service.js');
+      
+      if (feedId) {
+        // Process specific feed
+        const result = await rssService.processSpecificFeed(feedId);
+        res.json(result);
+      } else {
+        // Process all user feeds
+        const result = await rssService.processAllUserFeeds(req.user!.id);
+        res.json(result);
+      }
+    } catch (error) {
+      console.error('Process RSS feeds error:', error);
+      res.status(500).json({ message: 'Failed to process RSS feeds' });
+    }
+  });
+
+  // Crawler endpoints
+  app.get("/api/crawler/jobs", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const jobs = await storage.getCrawlerJobs(req.user!.id);
+      res.json(jobs);
+    } catch (error) {
+      console.error('Get crawler jobs error:', error);
+      res.status(500).json({ message: 'Failed to get crawler jobs' });
+    }
+  });
+
+  app.post("/api/crawler/jobs", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { rootUrl, profileId = 0, maxPages = 100 } = req.body;
+      
+      if (!rootUrl) {
+        return res.status(400).json({ message: 'Root URL is required' });
+      }
+      
+      const job = await storage.createCrawlerJob(req.user!.id, {
+        rootUrl,
+        profileId,
+        maxPages
+      });
+      
+      // Start crawling in background
+      setTimeout(async () => {
+        try {
+          const { crawlerService } = await import('./crawler-service.js');
+          await crawlerService.crawlRootUrl(rootUrl, req.user!.id, profileId, { maxPages });
+        } catch (error) {
+          console.error('Background crawl failed:', error);
+        }
+      }, 1000);
+      
+      res.json(job);
+    } catch (error) {
+      console.error('Create crawler job error:', error);
+      res.status(500).json({ message: 'Failed to create crawler job' });
+    }
+  });
+
+  app.get("/api/crawler/jobs/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      
+      const jobs = await storage.getCrawlerJobs(req.user!.id);
+      const targetJob = jobs.find(j => j.id === jobId);
+      
+      if (!targetJob) {
+        return res.status(404).json({ message: 'Crawler job not found' });
+      }
+      
+      res.json(targetJob);
+    } catch (error) {
+      console.error('Get crawler job error:', error);
+      res.status(500).json({ message: 'Failed to get crawler job' });
+    }
+  });
+
+  app.get("/api/crawler/jobs/:id/pages", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      
+      // Verify job belongs to user
+      const jobs = await storage.getCrawlerJobs(req.user!.id);
+      const job = jobs.find(j => j.id === jobId);
+      
+      if (!job) {
+        return res.status(404).json({ message: 'Crawler job not found' });
+      }
+      
+      const pages = await storage.getCrawlerPages(jobId);
+      res.json(pages);
+    } catch (error) {
+      console.error('Get crawler pages error:', error);
+      res.status(500).json({ message: 'Failed to get crawler pages' });
+    }
+  });
+
   // ChromaDB Health Check
   app.get("/api/chroma/health", authenticateToken, async (req: AuthRequest, res) => {
     try {

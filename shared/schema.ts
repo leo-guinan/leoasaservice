@@ -88,6 +88,76 @@ export const contextChatMessages = pgTable("context_chat_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// RSS Feeds for automatic content discovery
+export const rssFeeds = pgTable("rss_feeds", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0), // 0 for default context, or specific profile ID
+  feedUrl: text("feed_url").notNull(),
+  title: text("title"),
+  description: text("description"),
+  lastFetched: timestamp("last_fetched"),
+  lastItemDate: timestamp("last_item_date"), // Track the most recent item date
+  isActive: boolean("is_active").notNull().default(true),
+  fetchInterval: integer("fetch_interval").notNull().default(1440), // Minutes between fetches (default: 24 hours)
+  maxItemsPerFetch: integer("max_items_per_fetch").notNull().default(50),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// RSS Feed Items - individual articles from feeds
+export const rssFeedItems = pgTable("rss_feed_items", {
+  id: serial("id").primaryKey(),
+  feedId: integer("feed_id").notNull(), // References rssFeeds.id
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0),
+  title: text("title").notNull(),
+  description: text("description"),
+  content: text("content"), // Full article content if available
+  link: text("link").notNull(),
+  author: text("author"),
+  publishedAt: timestamp("published_at"),
+  guid: text("guid").notNull(), // Unique identifier from RSS feed
+  isProcessed: boolean("is_processed").notNull().default(false), // Whether content has been analyzed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Crawler Jobs for root URL processing
+export const crawlerJobs = pgTable("crawler_jobs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0),
+  rootUrl: text("root_url").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  maxPages: integer("max_pages").notNull().default(100),
+  pagesDiscovered: integer("pages_discovered").notNull().default(0),
+  pagesProcessed: integer("pages_processed").notNull().default(0),
+  pagesAnalyzed: integer("pages_analyzed").notNull().default(0),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Crawler Discovered Pages
+export const crawlerPages = pgTable("crawler_pages", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull(), // References crawlerJobs.id
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0),
+  url: text("url").notNull(),
+  title: text("title"),
+  description: text("description"),
+  content: text("content"),
+  analysis: jsonb("analysis"), // AI analysis of the page
+  status: text("status").notNull().default("discovered"), // 'discovered', 'processing', 'analyzed', 'failed'
+  priority: integer("priority").notNull().default(0), // Priority score for processing order
+  depth: integer("depth").notNull().default(1), // How deep in the site structure
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -113,6 +183,21 @@ export const insertContextProfileSchema = createInsertSchema(userContextProfiles
   description: true,
 });
 
+export const insertRssFeedSchema = createInsertSchema(rssFeeds).pick({
+  feedUrl: true,
+  title: true,
+  description: true,
+  profileId: true,
+  fetchInterval: true,
+  maxItemsPerFetch: true,
+});
+
+export const insertCrawlerJobSchema = createInsertSchema(crawlerJobs).pick({
+  rootUrl: true,
+  profileId: true,
+  maxPages: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUrl = z.infer<typeof insertUrlSchema>;
@@ -127,3 +212,9 @@ export type UserContextProfile = typeof userContextProfiles.$inferSelect;
 export type UserContextProfileData = typeof userContextProfileData.$inferSelect;
 export type ContextUrl = typeof contextUrls.$inferSelect;
 export type ContextChatMessage = typeof contextChatMessages.$inferSelect;
+export type RssFeed = typeof rssFeeds.$inferSelect;
+export type InsertRssFeed = z.infer<typeof insertRssFeedSchema>;
+export type RssFeedItem = typeof rssFeedItems.$inferSelect;
+export type CrawlerJob = typeof crawlerJobs.$inferSelect;
+export type InsertCrawlerJob = z.infer<typeof insertCrawlerJobSchema>;
+export type CrawlerPage = typeof crawlerPages.$inferSelect;
