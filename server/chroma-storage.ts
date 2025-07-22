@@ -269,6 +269,79 @@ export class ChromaEnhancedStorage implements IChromaStorage {
   async deleteUserVectorData(userId: number) {
     await chromaService.deleteUserData(userId);
   }
+
+  // RSS Feed methods - delegate to base storage
+  async getRssFeeds(userId: number) {
+    return this.baseStorage.getRssFeeds(userId);
+  }
+
+  async createRssFeed(userId: number, feed: any) {
+    return this.baseStorage.createRssFeed(userId, feed);
+  }
+
+  async updateRssFeed(id: number, userId: number, updates: any) {
+    return this.baseStorage.updateRssFeed(id, userId, updates);
+  }
+
+  async updateRssFeedLastFetched(id: number) {
+    return this.baseStorage.updateRssFeedLastFetched(id);
+  }
+
+  async updateRssFeedMetadata(id: number, updates: any) {
+    return this.baseStorage.updateRssFeedMetadata(id, updates);
+  }
+
+  async deleteRssFeed(id: number, userId: number) {
+    return this.baseStorage.deleteRssFeed(id, userId);
+  }
+
+  async getRssFeedItems(userId: number, feedId?: number) {
+    return this.baseStorage.getRssFeedItems(userId, feedId);
+  }
+
+  async createRssFeedItem(item: any) {
+    return this.baseStorage.createRssFeedItem(item);
+  }
+
+  async updateRssFeedItem(id: number, updates: any) {
+    return this.baseStorage.updateRssFeedItem(id, updates);
+  }
+
+  async deleteRssFeedItem(id: number, userId: number) {
+    return this.baseStorage.deleteRssFeedItem(id, userId);
+  }
+
+  async getCrawlerJobs(userId: number) {
+    return this.baseStorage.getCrawlerJobs(userId);
+  }
+
+  async createCrawlerJob(userId: number, job: any) {
+    return this.baseStorage.createCrawlerJob(userId, job);
+  }
+
+  async updateCrawlerJob(id: number, userId: number, updates: any) {
+    return this.baseStorage.updateCrawlerJob(id, userId, updates);
+  }
+
+  async deleteCrawlerJob(id: number, userId: number) {
+    return this.baseStorage.deleteCrawlerJob(id, userId);
+  }
+
+  async getCrawlerPages(jobId: number) {
+    return this.baseStorage.getCrawlerPages(jobId);
+  }
+
+  async createCrawlerPage(page: any) {
+    return this.baseStorage.createCrawlerPage(page);
+  }
+
+  async updateCrawlerPage(id: number, updates: any) {
+    return this.baseStorage.updateCrawlerPage(id, updates);
+  }
+
+  async deleteCrawlerPage(id: number, jobId: number) {
+    return this.baseStorage.deleteCrawlerPage(id, jobId);
+  }
 }
 
 // Factory function to create ChromaDB-enhanced storage
