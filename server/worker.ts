@@ -5,6 +5,7 @@ import { createUrlProcessingQueue, createContentAnalysisQueue } from '@shared/qu
 import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
 import { getBullRedisConfig } from '@shared/redis';
 import { testDatabaseConnection } from '@shared/postgres';
+import { mastra } from './mastra/index';
 
 console.log('Worker module loaded. Initializing workers...');
 
@@ -49,41 +50,62 @@ if (urlProcessingQueue) {
         await job.updateProgress(10);
         console.log(`Processing URL: ${url} for user ${userId}, urlId: ${urlId}`);
         
-        // Fetch URL content using Jina for markdown conversion
+        // Use Mastra URL processing workflow
         await job.updateProgress(20);
-        console.log(`Fetching content for URL: ${url}`);
-        const content = await fetchUrlContent(url);
+        console.log(`Starting Mastra URL processing workflow...`);
+        const workflow = mastra.getWorkflow('urlProcessingWorkflow');
         
-        // Save content to database
-        await job.updateProgress(50);
-        console.log(`Saving content to database for urlId: ${urlId}`);
-        const updatedUrl = await storage.updateUrlContent(urlId, userId, content);
+        await job.updateProgress(30);
+        console.log(`Creating workflow run...`);
+        const run = await workflow.createRunAsync();
         
-        if (!updatedUrl) {
-          throw new Error(`Failed to update URL content - URL not found or access denied`);
-        }
+        await job.updateProgress(40);
+        console.log(`Starting URL processing with auto-detection...`);
+        const result = await run.start({
+          inputData: {
+            urlId,
+            userId,
+            url,
+            urlType: 'auto' // Let the workflow auto-determine if it's root or leaf
+          },
+        });
         
-        console.log(`Content saved successfully. Content length: ${content.length} characters`);
-        
-        // Analyze content with AI
-        await job.updateProgress(75);
-        console.log(`Starting AI analysis for urlId: ${urlId}`);
-        const analysis = await analyzeContent(content);
-        
-        // Store analysis results
         await job.updateProgress(90);
-        console.log(`Saving analysis to database for urlId: ${urlId}`);
-        const urlWithAnalysis = await storage.updateUrlAnalysis(urlId, userId, analysis);
         
-        if (!urlWithAnalysis) {
-          throw new Error(`Failed to update URL analysis - URL not found or access denied`);
+        if (result.status === 'success') {
+          console.log("✅ URL processing completed successfully");
+          console.log(`   Type: ${result.result.urlType}`);
+          console.log(`   Content Length: ${result.result.contentLength}`);
+          console.log(`   Success: ${result.result.success}`);
+          console.log(`   Message: ${result.result.message}`);
+          
+          if (result.result.rssFeeds && result.result.rssFeeds.length > 0) {
+            console.log(`   RSS Feeds: ${result.result.rssFeeds.length} discovered`);
+          }
+          
+          if (result.result.discoveredPages && result.result.discoveredPages.length > 0) {
+            console.log(`   Discovered Pages: ${result.result.discoveredPages.length}`);
+          }
+          
+          await job.updateProgress(100);
+          console.log(`=== PROCESSING JOB COMPLETED ===`);
+          
+          return {
+            success: true,
+            urlType: result.result.urlType,
+            contentLength: result.result.contentLength,
+            analysis: result.result.analysis,
+            rssFeeds: result.result.rssFeeds || [],
+            discoveredPages: result.result.discoveredPages || [],
+            message: result.result.message
+          };
+        } else if (result.status === 'failed') {
+          console.error("❌ URL processing failed:", result.error?.message);
+          throw new Error(`Workflow failed: ${result.error?.message || 'Unknown error'}`);
+        } else {
+          console.error("❌ URL processing suspended or in unexpected state:", result.status);
+          throw new Error(`Workflow in unexpected state: ${result.status}`);
         }
-        
-        await job.updateProgress(100);
-        console.log(`URL processing completed successfully for ${url}`);
-        console.log(`=== PROCESSING JOB COMPLETED ===`);
-        
-        return { success: true, content, analysis };
       } catch (error) {
         console.error(`URL processing failed for ${url} (urlId: ${urlId}):`, error);
         console.log(`=== PROCESSING JOB FAILED ===`);
@@ -203,38 +225,7 @@ if (contentAnalysisQueue) {
   console.log('Content analysis worker not created (no queue available)');
 }
 
-// Helper function to fetch URL content
-async function fetchUrlContent(url: string): Promise<string> {
-  try {
-    // Ensure URL is properly encoded for Jina
-    const encodedUrl = encodeURIComponent(url);
-    const jinaUrl = `https://r.jina.ai/${encodedUrl}`;
-    
-    console.log(`Fetching content from Jina: ${jinaUrl}`);
-    
-    const response = await fetch(jinaUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Jina API returned ${response.status}: ${response.statusText}`);
-    }
-    
-    const markdown = await response.text();
-    
-    if (!markdown || markdown.trim().length === 0) {
-      throw new Error('Empty content received from Jina');
-    }
-    
-    console.log(`Successfully fetched ${markdown.length} characters from ${url}`);
-    
-    // Return the markdown content directly
-    return markdown.trim();
-  } catch (error) {
-    console.error(`Failed to fetch URL content: ${url}`, error);
-    throw new Error(`Failed to fetch URL content: ${error}`);
-  }
-}
-
-// Helper function to analyze content with AI
+// Helper function to analyze content with AI (used by content analysis worker)
 async function analyzeContent(content: string): Promise<any> {
   try {
     const response = await openai.chat.completions.create({

@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { authenticateToken, registerUser, loginUser, type AuthRequest } from "./auth";
 import { getDb } from "./db";
 import { sql } from "drizzle-orm";
+import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
 import { testRedisConnection } from "@shared/redis";
 import { upload, uploadFileToS3, isS3Configured } from "./s3";
 import puppeteer, { Browser } from "puppeteer";
@@ -150,7 +151,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "your-api-key-here" 
 });
 
-// URL processing is now handled by Mastra workflow
+// Create queue using shared configuration
+const urlProcessingQueue = createUrlProcessingQueue();
 
 // Helper function to process URLs synchronously (temporary fallback)
 async function processUrlSynchronously(urlId: number, userId: number, url: string) {
@@ -430,59 +432,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("URL created successfully:", url);
       
-      // Use Mastra URL processing workflow
-      try {
-        console.log("Starting Mastra URL processing workflow...");
-        const { mastra } = await import('./mastra/index.js');
-        const workflow = mastra.getWorkflow('urlProcessingWorkflow');
+      // Queue background processing (if Redis is available)
+      if (urlProcessingQueue) {
+        console.log("Adding URL to processing queue...");
+        console.log("Queue object:", urlProcessingQueue ? "exists" : "null");
+        console.log("Redis URL:", process.env.REDIS_URL ? "configured" : "not configured");
         
-        console.log("Creating workflow run...");
-        const run = await workflow.createRunAsync();
-        
-        console.log("Starting URL processing with auto-detection...");
-        const result = await run.start({
-          inputData: {
-            urlId: url.id,
-            userId: req.user!.id,
-            url: url.url,
-            urlType: 'auto' // Let the workflow auto-determine if it's root or leaf
-          },
-        });
-        
-        if (result.status === 'success') {
-          console.log("✅ URL processing completed successfully");
-          console.log(`   Type: ${result.result.urlType}`);
-          console.log(`   Content Length: ${result.result.contentLength}`);
-          console.log(`   Success: ${result.result.success}`);
-          console.log(`   Message: ${result.result.message}`);
-          
-          if (result.result.rssFeeds && result.result.rssFeeds.length > 0) {
-            console.log(`   RSS Feeds: ${result.result.rssFeeds.length} discovered`);
+        // Test Redis connection in main server
+        if (process.env.REDIS_URL) {
+          try {
+            console.log("Testing Redis connection in main server...");
+            const isConnected = await testRedisConnection();
+            if (isConnected) {
+              console.log("Redis connection test successful in main server");
+            } else {
+              console.log("Redis connection test failed in main server");
+            }
+          } catch (redisError) {
+            console.error("Redis connection test failed in main server:", redisError);
           }
-          
-          if (result.result.discoveredPages && result.result.discoveredPages.length > 0) {
-            console.log(`   Discovered Pages: ${result.result.discoveredPages.length}`);
-          }
-        } else if (result.status === 'failed') {
-          console.error("❌ URL processing failed:", result.error?.message);
-          // Fallback to synchronous processing
-          console.log("Falling back to synchronous processing...");
-          await processUrlSynchronously(url.id, req.user!.id, url.url);
-        } else {
-          console.error("❌ URL processing suspended or in unexpected state:", result.status);
-          // Fallback to synchronous processing
-          console.log("Falling back to synchronous processing...");
-          await processUrlSynchronously(url.id, req.user!.id, url.url);
         }
-      } catch (workflowError) {
-        console.error("Failed to use Mastra workflow:", workflowError);
-        console.log("Falling back to synchronous processing...");
+        
         try {
-          await processUrlSynchronously(url.id, req.user!.id, url.url);
-          console.log("URL processed synchronously successfully");
-        } catch (syncError) {
-          console.error("Synchronous processing also failed:", syncError);
+          console.log("About to call queue.add()...");
+          const job = await Promise.race([
+            addUrlProcessingJob(urlProcessingQueue!, {
+              userId: req.user!.id,
+              urlId: url.id,
+              url: url.url
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Queue add timeout after 10 seconds')), 10000)
+            )
+          ]) as any;
+          console.log("URL added to queue successfully, job ID:", job.id);
+          
+          // Check queue status after adding job
+          try {
+            const waitingJobs = await urlProcessingQueue.getWaiting();
+            const activeJobs = await urlProcessingQueue.getActive();
+            console.log(`Queue status after adding job: ${waitingJobs.length} waiting, ${activeJobs.length} active`);
+          } catch (statusError) {
+            console.error("Error checking queue status:", statusError);
+          }
+        } catch (queueError) {
+          console.error("Failed to add URL to queue:", queueError);
+          console.error("Queue error details:", {
+            message: queueError instanceof Error ? queueError.message : String(queueError),
+            stack: queueError instanceof Error ? queueError.stack : undefined,
+            name: queueError instanceof Error ? queueError.name : 'Unknown'
+          });
+          
+          // TEMPORARY: Process URL synchronously if queue fails
+          console.log("Processing URL synchronously as fallback...");
+          try {
+            await processUrlSynchronously(url.id, req.user!.id, url.url);
+            console.log("URL processed synchronously successfully");
+          } catch (syncError) {
+            console.error("Synchronous processing also failed:", syncError);
+          }
         }
+      } else {
+        console.log("URL processing queue not available (Redis not configured)");
+        console.log("urlProcessingQueue is:", urlProcessingQueue);
+        console.log("REDIS_URL is:", process.env.REDIS_URL ? "set" : "not set");
       }
       
       res.json(url);
