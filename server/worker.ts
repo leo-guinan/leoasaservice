@@ -6,6 +6,7 @@ import { ProcessUrlJob, AnalyzeContentJob, JOB_TYPES } from '@shared/jobs';
 import { getBullRedisConfig } from '@shared/redis';
 import { testDatabaseConnection } from '@shared/postgres';
 import { mastra } from './mastra/index';
+import { chromaService } from './chroma';
 
 console.log('Worker module loaded. Initializing workers...');
 
@@ -16,6 +17,18 @@ testDatabaseConnection().then(success => {
 }).catch(error => {
   console.error('Database connection test failed:', error);
 });
+
+// Initialize ChromaDB if configured
+if (process.env.CHROMA_API_KEY) {
+  console.log('Initializing ChromaDB...');
+  chromaService.initialize().then(() => {
+    console.log('ChromaDB initialized successfully');
+  }).catch(error => {
+    console.error('ChromaDB initialization failed:', error);
+  });
+} else {
+  console.log('ChromaDB not configured, skipping initialization');
+}
 
 // OpenAI client
 const openai = new OpenAI({ 

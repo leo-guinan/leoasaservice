@@ -546,7 +546,12 @@ export function createStorage(): IStorage {
   
   // Wrap with ChromaDB enhancement if ChromaDB is configured
   if (process.env.CHROMA_API_KEY) {
-    return createChromaStorage(baseStorage);
+    const chromaStorage = createChromaStorage(baseStorage);
+    // Initialize ChromaDB
+    chromaStorage.initialize().catch(error => {
+      console.error('Failed to initialize ChromaDB storage:', error);
+    });
+    return chromaStorage;
   }
   
   return baseStorage;
