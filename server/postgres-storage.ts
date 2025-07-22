@@ -1,6 +1,6 @@
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 import { getDb } from "./db";
-import { users, urls, chatMessages, leoQuestions, userContexts, contextUrls, contextChatMessages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type ContextUrl, type ContextChatMessage } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, userContextProfiles, contextUrls, contextChatMessages, rssFeeds, rssFeedItems, crawlerJobs, crawlerPages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type UserContextProfile, type ContextUrl, type ContextChatMessage, type RssFeed, type InsertRssFeed, type RssFeedItem, type CrawlerJob, type InsertCrawlerJob, type CrawlerPage } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { hashPassword } from "./auth";
 import { sql } from "drizzle-orm";
@@ -358,5 +358,208 @@ export class PostgresStorage implements IStorage {
       
       return { urls: contextUrls.length, messages: contextMessages.length };
     }
+  }
+
+  // Context Profile methods
+  async getUserContextProfiles(userId: number): Promise<UserContextProfile[]> {
+    return await getDb().select().from(userContextProfiles).where(eq(userContextProfiles.userId, userId)).orderBy(desc(userContextProfiles.createdAt));
+  }
+
+  async getActiveContextProfile(userId: number): Promise<UserContextProfile | undefined> {
+    const result = await getDb().select().from(userContextProfiles).where(and(eq(userContextProfiles.userId, userId), eq(userContextProfiles.isActive, true))).limit(1);
+    return result[0];
+  }
+
+  async createContextProfile(userId: number, profile: any): Promise<UserContextProfile> {
+    const result = await getDb().insert(userContextProfiles).values({
+      userId,
+      name: profile.name,
+      description: profile.description || null,
+      isActive: profile.isActive || false,
+      isLocked: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateContextProfile(id: number, userId: number, updates: any): Promise<UserContextProfile | undefined> {
+    const result = await getDb().update(userContextProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(userContextProfiles.id, id), eq(userContextProfiles.userId, userId)))
+      .returning();
+    return result[0];
+  }
+
+  async toggleContextLock(id: number, userId: number): Promise<UserContextProfile | undefined> {
+    // First get the current profile to check its lock status
+    const currentProfile = await getDb().select().from(userContextProfiles).where(and(eq(userContextProfiles.id, id), eq(userContextProfiles.userId, userId))).limit(1);
+    
+    if (currentProfile.length === 0) {
+      return undefined;
+    }
+
+    const newLockStatus = !currentProfile[0].isLocked;
+    const result = await getDb().update(userContextProfiles)
+      .set({ isLocked: newLockStatus, updatedAt: new Date() })
+      .where(and(eq(userContextProfiles.id, id), eq(userContextProfiles.userId, userId)))
+      .returning();
+    return result[0];
+  }
+
+  async isContextLocked(profileId: number): Promise<boolean> {
+    if (profileId === 0) {
+      // Default context is never locked
+      return false;
+    }
+    
+    const result = await getDb().select({ isLocked: userContextProfiles.isLocked }).from(userContextProfiles).where(eq(userContextProfiles.id, profileId)).limit(1);
+    return result[0]?.isLocked || false;
+  }
+
+  // RSS Feed methods
+  async getRssFeeds(userId: number): Promise<any[]> {
+    // This would need the rssFeeds table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createRssFeed(userId: number, feed: any): Promise<any> {
+    // This would need the rssFeeds table import
+    // For now, return a mock feed as placeholder
+    return {
+      id: 1,
+      userId,
+      profileId: feed.profileId || 0,
+      feedUrl: feed.feedUrl,
+      title: feed.title,
+      description: feed.description,
+      lastFetched: null,
+      lastItemDate: null,
+      isActive: true,
+      fetchInterval: feed.fetchInterval || 1440,
+      maxItemsPerFetch: feed.maxItemsPerFetch || 50,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateRssFeed(id: number, userId: number, updates: any): Promise<any | undefined> {
+    // This would need the rssFeeds table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async updateRssFeedLastFetched(id: number): Promise<void> {
+    // This would need the rssFeeds table import
+    // For now, do nothing as placeholder
+  }
+
+  async updateRssFeedMetadata(id: number, updates: any): Promise<void> {
+    // This would need the rssFeeds table import
+    // For now, do nothing as placeholder
+  }
+
+  async deleteRssFeed(id: number, userId: number): Promise<boolean> {
+    // This would need the rssFeeds table import
+    // For now, return false as placeholder
+    return false;
+  }
+
+  // RSS Feed Item methods
+  async getRssFeedItems(userId: number, feedId?: number): Promise<any[]> {
+    // This would need the rssFeedItems table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createRssFeedItem(item: any): Promise<any> {
+    // This would need the rssFeedItems table import
+    // For now, return a mock item as placeholder
+    return {
+      id: 1,
+      ...item,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateRssFeedItem(id: number, updates: any): Promise<any | undefined> {
+    // This would need the rssFeedItems table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async deleteRssFeedItem(id: number, userId: number): Promise<boolean> {
+    // This would need the rssFeedItems table import
+    // For now, return false as placeholder
+    return false;
+  }
+
+  // Crawler methods
+  async getCrawlerJobs(userId: number): Promise<any[]> {
+    // This would need the crawlerJobs table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createCrawlerJob(userId: number, job: any): Promise<any> {
+    // This would need the crawlerJobs table import
+    // For now, return a mock job as placeholder
+    return {
+      id: 1,
+      userId,
+      profileId: job.profileId || 0,
+      rootUrl: job.rootUrl,
+      status: job.status || 'pending',
+      maxPages: job.maxPages || 100,
+      pagesDiscovered: 0,
+      pagesProcessed: 0,
+      pagesAnalyzed: 0,
+      startedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateCrawlerJob(id: number, userId: number, updates: any): Promise<any | undefined> {
+    // This would need the crawlerJobs table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async deleteCrawlerJob(id: number, userId: number): Promise<boolean> {
+    // This would need the crawlerJobs table import
+    // For now, return false as placeholder
+    return false;
+  }
+
+  // Crawler Page methods
+  async getCrawlerPages(jobId: number): Promise<any[]> {
+    // This would need the crawlerPages table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createCrawlerPage(page: any): Promise<any> {
+    // This would need the crawlerPages table import
+    // For now, return a mock page as placeholder
+    return {
+      id: 1,
+      ...page,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateCrawlerPage(id: number, updates: any): Promise<any | undefined> {
+    // This would need the crawlerPages table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async deleteCrawlerPage(id: number, jobId: number): Promise<boolean> {
+    // This would need the crawlerPages table import
+    // For now, return false as placeholder
+    return false;
   }
 } 

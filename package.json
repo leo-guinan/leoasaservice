@@ -44,6 +44,7 @@
     "chroma:delete-all": "tsx scripts/delete-chroma-collections.ts",
     "chroma:test": "tsx scripts/test-chroma-integration.ts",
     "chroma:setup-env": "./scripts/setup-chroma-env.sh",
+    "chroma:recreate": "tsx scripts/recreate-chroma-collections.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",
     "rss:list": "tsx scripts/process-rss-feeds.ts --list",
     "crawler:test": "tsx scripts/test-crawler.ts"

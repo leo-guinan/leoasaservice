@@ -1271,6 +1271,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Context Profile Management
+  app.get("/api/context/profiles", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const profiles = await storage.getUserContextProfiles(req.user!.id);
+      res.json(profiles);
+    } catch (error) {
+      console.error('Get context profiles error:', error);
+      res.status(500).json({ message: 'Failed to get context profiles' });
+    }
+  });
+
+  app.post("/api/context/profiles", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { name, description, isActive = false } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: 'Profile name is required' });
+      }
+      
+      const profile = await storage.createContextProfile(req.user!.id, {
+        name,
+        description,
+        isActive
+      });
+      
+      res.json(profile);
+    } catch (error) {
+      console.error('Create context profile error:', error);
+      res.status(500).json({ message: 'Failed to create context profile' });
+    }
+  });
+
+  app.put("/api/context/profiles/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const updatedProfile = await storage.updateContextProfile(profileId, req.user!.id, updates);
+      
+      if (!updatedProfile) {
+        return res.status(404).json({ message: 'Context profile not found' });
+      }
+      
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error('Update context profile error:', error);
+      res.status(500).json({ message: 'Failed to update context profile' });
+    }
+  });
+
+  app.post("/api/context/profiles/:id/toggle-lock", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      
+      const updatedProfile = await storage.toggleContextLock(profileId, req.user!.id);
+      
+      if (!updatedProfile) {
+        return res.status(404).json({ message: 'Context profile not found' });
+      }
+      
+      res.json({
+        profile: updatedProfile,
+        message: updatedProfile.isLocked ? 'Context locked successfully' : 'Context unlocked successfully'
+      });
+    } catch (error) {
+      console.error('Toggle context lock error:', error);
+      res.status(500).json({ message: 'Failed to toggle context lock' });
+    }
+  });
+
+  app.get("/api/context/profiles/:id/lock-status", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const profileId = parseInt(req.params.id);
+      
+      const isLocked = await storage.isContextLocked(profileId);
+      
+      res.json({ isLocked });
+    } catch (error) {
+      console.error('Get context lock status error:', error);
+      res.status(500).json({ message: 'Failed to get context lock status' });
+    }
+  });
+
   // ChromaDB Health Check
   app.get("/api/chroma/health", authenticateToken, async (req: AuthRequest, res) => {
     try {

@@ -53,6 +53,7 @@ export const userContextProfiles = pgTable("user_context_profiles", {
   name: text("name").notNull(), // Profile name (e.g., "AI Research", "Blockchain Project")
   description: text("description"), // Optional description
   isActive: boolean("is_active").notNull().default(false), // Only one profile can be active per user
+  isLocked: boolean("is_locked").notNull().default(false), // Prevent context updates when locked
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

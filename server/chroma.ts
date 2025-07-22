@@ -1,4 +1,5 @@
 import { CloudClient } from "chromadb";
+import { DefaultEmbeddingFunction } from "@chroma-core/default-embed";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -78,11 +79,17 @@ class ChromaService {
   private async getOrCreateCollection(name: string) {
     try {
       // Try to get existing collection
-      return await client.getCollection({ name });
+      return await client.getCollection({ 
+        name,
+        embeddingFunction: new DefaultEmbeddingFunction()
+      });
     } catch (error) {
       // Collection doesn't exist, create it
       console.log(`Creating collection: ${name}`);
-      return await client.createCollection({ name });
+      return await client.createCollection({ 
+        name,
+        embeddingFunction: new DefaultEmbeddingFunction()
+      });
     }
   }
 

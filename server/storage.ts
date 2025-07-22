@@ -40,6 +40,14 @@ export interface IStorage {
   getUserContext(userId: number): Promise<UserContext | undefined>;
   updateUserContext(userId: number, context: any): Promise<UserContext>;
   
+  // Context Profile methods
+  getUserContextProfiles(userId: number): Promise<any[]>;
+  getActiveContextProfile(userId: number): Promise<any | undefined>;
+  createContextProfile(userId: number, profile: any): Promise<any>;
+  updateContextProfile(id: number, userId: number, updates: any): Promise<any | undefined>;
+  toggleContextLock(id: number, userId: number): Promise<any | undefined>;
+  isContextLocked(profileId: number): Promise<boolean>;
+  
   // Context-specific data methods (for pro mode)
   getContextUrls(userId: number, profileId: number): Promise<ContextUrl[]>;
   createContextUrl(userId: number, profileId: number, url: InsertUrl): Promise<ContextUrl>;
@@ -342,6 +350,63 @@ export class MemStorage implements IStorage {
     return { urls: urls.length, messages: messages.length };
   }
 
+  // Context Profile methods - Memory storage implementation
+  private contextProfiles: Map<number, any> = new Map();
+  private currentContextProfileId: number = 1;
+
+  async getUserContextProfiles(userId: number): Promise<any[]> {
+    return Array.from(this.contextProfiles.values()).filter(profile => profile.userId === userId);
+  }
+
+  async getActiveContextProfile(userId: number): Promise<any | undefined> {
+    return Array.from(this.contextProfiles.values()).find(profile => profile.userId === userId && profile.isActive);
+  }
+
+  async createContextProfile(userId: number, profile: any): Promise<any> {
+    const id = this.currentContextProfileId++;
+    const contextProfile = {
+      id,
+      userId,
+      name: profile.name,
+      description: profile.description,
+      isActive: profile.isActive || false,
+      isLocked: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.contextProfiles.set(id, contextProfile);
+    return contextProfile;
+  }
+
+  async updateContextProfile(id: number, userId: number, updates: any): Promise<any | undefined> {
+    const profile = this.contextProfiles.get(id);
+    if (profile && profile.userId === userId) {
+      const updatedProfile = { ...profile, ...updates, updatedAt: new Date() };
+      this.contextProfiles.set(id, updatedProfile);
+      return updatedProfile;
+    }
+    return undefined;
+  }
+
+  async toggleContextLock(id: number, userId: number): Promise<any | undefined> {
+    const profile = this.contextProfiles.get(id);
+    if (profile && profile.userId === userId) {
+      const updatedProfile = { 
+        ...profile, 
+        isLocked: !profile.isLocked, 
+        updatedAt: new Date() 
+      };
+      this.contextProfiles.set(id, updatedProfile);
+      return updatedProfile;
+    }
+    return undefined;
+  }
+
+  async isContextLocked(profileId: number): Promise<boolean> {
+    const profile = this.contextProfiles.get(profileId);
+    return profile ? profile.isLocked : false;
+  }
+
   // RSS Feed methods - Memory storage implementation
   private rssFeeds: Map<number, RssFeed> = new Map();
   private rssFeedItems: Map<number, RssFeedItem> = new Map();
@@ -363,8 +428,8 @@ export class MemStorage implements IStorage {
       userId,
       profileId: feed.profileId || 0,
       feedUrl: feed.feedUrl,
-      title: feed.title,
-      description: feed.description,
+      title: feed.title || null,
+      description: feed.description || null,
       lastFetched: null,
       lastItemDate: null,
       isActive: true,

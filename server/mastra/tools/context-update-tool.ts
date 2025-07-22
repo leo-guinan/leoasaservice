@@ -1,8 +1,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getDb } from '../../db';
-import { userContexts, type UserContext } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { userContexts, userContextProfiles, type UserContext } from '@shared/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ 
@@ -46,7 +46,7 @@ export const contextUpdateTool = createTool({
       researchPatterns: z.array(z.string()),
       lastUpdated: z.string(),
       version: z.number(),
-    }),
+    }).nullable(),
     contextChanged: z.boolean(),
     summary: z.string(),
   }),
@@ -61,6 +61,23 @@ const updateUserContext = async (
   newActivitySummary: any
 ) => {
   const db = getDb();
+  
+  // Check if the user has an active context profile and if it's locked
+  const activeProfile = await db
+    .select()
+    .from(userContextProfiles)
+    .where(and(eq(userContextProfiles.userId, userId), eq(userContextProfiles.isActive, true)))
+    .limit(1);
+  
+  if (activeProfile.length > 0 && activeProfile[0].isLocked) {
+    console.log(`Context update skipped for user ${userId} - context profile ${activeProfile[0].id} is locked`);
+    return {
+      userId,
+      updatedContext: null,
+      contextChanged: false,
+      summary: 'Context update skipped - context is locked',
+    };
+  }
   
   // Get existing context
   const existingContext = await db
