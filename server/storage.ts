@@ -81,6 +81,22 @@ export interface IStorage {
   createCrawlerPage(page: Omit<CrawlerPage, 'id' | 'createdAt'>): Promise<CrawlerPage>;
   updateCrawlerPage(id: number, updates: Partial<CrawlerPage>): Promise<CrawlerPage | undefined>;
   deleteCrawlerPage(id: number, jobId: number): Promise<boolean>;
+  
+  // Research methods
+  getResearchRequests(userId: number, profileId?: number, status?: string): Promise<any[]>;
+  createResearchRequest(userId: number, request: any): Promise<any>;
+  updateResearchRequest(id: number, userId: number, updates: any): Promise<any | undefined>;
+  deleteResearchRequest(id: number, userId: number): Promise<boolean>;
+  
+  getResearchReports(userId: number, profileId?: number): Promise<any[]>;
+  createResearchReport(report: any): Promise<any>;
+  updateResearchReport(id: number, userId: number, updates: any): Promise<any | undefined>;
+  deleteResearchReport(id: number, userId: number): Promise<boolean>;
+  
+  // ChromaDB search methods (if available)
+  searchUrlContent?(userId: number, query: string, limit?: number): Promise<any>;
+  searchUrlAnalysis?(userId: number, query: string, limit?: number): Promise<any>;
+  searchChatMessages?(userId: number, query: string, limit?: number): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -590,6 +606,106 @@ export class MemStorage implements IStorage {
     const page = this.crawlerPages.get(id);
     if (page && page.jobId === jobId) {
       this.crawlerPages.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  // Research methods - Memory storage implementation
+  private researchRequests: Map<number, any> = new Map();
+  private researchReports: Map<number, any> = new Map();
+  private currentResearchRequestId: number = 1;
+  private currentResearchReportId: number = 1;
+
+  async getResearchRequests(userId: number, profileId?: number, status?: string): Promise<any[]> {
+    let requests = Array.from(this.researchRequests.values()).filter(req => req.userId === userId);
+    
+    if (profileId !== undefined) {
+      requests = requests.filter(req => req.profileId === profileId);
+    }
+    
+    if (status) {
+      requests = requests.filter(req => req.status === status);
+    }
+    
+    return requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createResearchRequest(userId: number, request: any): Promise<any> {
+    const id = this.currentResearchRequestId++;
+    const researchRequest = {
+      id,
+      userId,
+      profileId: request.profileId || 0,
+      title: request.title,
+      description: request.description,
+      researchAreas: request.researchAreas || [],
+      priority: request.priority || 'medium',
+      status: 'pending',
+      assignedTo: null,
+      dueDate: request.dueDate ? new Date(request.dueDate) : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.researchRequests.set(id, researchRequest);
+    return researchRequest;
+  }
+
+  async updateResearchRequest(id: number, userId: number, updates: any): Promise<any | undefined> {
+    const request = this.researchRequests.get(id);
+    if (request && request.userId === userId) {
+      const updatedRequest = { ...request, ...updates, updatedAt: new Date() };
+      this.researchRequests.set(id, updatedRequest);
+      return updatedRequest;
+    }
+    return undefined;
+  }
+
+  async deleteResearchRequest(id: number, userId: number): Promise<boolean> {
+    const request = this.researchRequests.get(id);
+    if (request && request.userId === userId) {
+      this.researchRequests.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  async getResearchReports(userId: number, profileId?: number): Promise<any[]> {
+    let reports = Array.from(this.researchReports.values()).filter(report => report.userId === userId);
+    
+    if (profileId !== undefined) {
+      reports = reports.filter(report => report.profileId === profileId);
+    }
+    
+    return reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createResearchReport(report: any): Promise<any> {
+    const id = this.currentResearchReportId++;
+    const researchReport = {
+      id,
+      ...report,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.researchReports.set(id, researchReport);
+    return researchReport;
+  }
+
+  async updateResearchReport(id: number, userId: number, updates: any): Promise<any | undefined> {
+    const report = this.researchReports.get(id);
+    if (report && report.userId === userId) {
+      const updatedReport = { ...report, ...updates, updatedAt: new Date() };
+      this.researchReports.set(id, updatedReport);
+      return updatedReport;
+    }
+    return undefined;
+  }
+
+  async deleteResearchReport(id: number, userId: number): Promise<boolean> {
+    const report = this.researchReports.get(id);
+    if (report && report.userId === userId) {
+      this.researchReports.delete(id);
       return true;
     }
     return false;

@@ -10,14 +10,8 @@ import { createUrlProcessingQueue, addUrlProcessingJob } from "@shared/queues";
 import { testRedisConnection } from "@shared/redis";
 import { upload, uploadFileToS3, isS3Configured } from "./s3";
 import puppeteer, { Browser } from "puppeteer";
-// Optional sharp import for image optimization
-let sharp: any = null;
-try {
-  sharp = require("sharp");
-} catch (error) {
-  console.warn("Sharp not available for image optimization:", error instanceof Error ? error.message : 'Unknown error');
-}
 import { getUserContext, createContextAwarePrompt } from "./mastra/agents/chat-agent";
+import { optimizeImage } from "./utils/image-processing";
 
 // Convert PDF pages to images and extract text using GPT-4o vision
 async function extractPdfText(buffer: Buffer): Promise<string> {
@@ -82,16 +76,13 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
           fullPage: true
         });
         
-        // Optimize image if sharp is available, otherwise use original
-        let optimizedBuffer: Buffer;
-        if (sharp) {
-          optimizedBuffer = await sharp(screenshot)
-            .resize(1200, 1600, { fit: 'inside', withoutEnlargement: true })
-            .png({ quality: 90 })
-            .toBuffer();
-        } else {
-          optimizedBuffer = Buffer.from(screenshot);
-        }
+        // Optimize image using the utility function
+        const optimizedBuffer = await optimizeImage(Buffer.from(screenshot), {
+          width: 1200,
+          height: 1600,
+          quality: 90,
+          format: 'png'
+        });
         
         // Convert to base64 for OpenAI API
         const base64Image = optimizedBuffer.toString('base64');
@@ -1351,6 +1342,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get context lock status error:', error);
       res.status(500).json({ message: 'Failed to get context lock status' });
+    }
+  });
+
+  // Research routes
+  app.post('/api/research/requests', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { title, description, researchAreas, priority, profileId, dueDate } = req.body;
+      
+      if (!title || !description) {
+        return res.status(400).json({ error: 'Title and description are required' });
+      }
+      
+      const request = await storage.createResearchRequest(req.user!.id, {
+        profileId: profileId || 0,
+        title,
+        description,
+        researchAreas: researchAreas || [],
+        priority: priority || 'medium',
+        dueDate: dueDate ? new Date(dueDate) : null,
+      });
+      
+      res.json({
+        success: true,
+        requestId: request.id,
+        message: `Research request "${title}" created successfully.`,
+      });
+    } catch (error) {
+      console.error('Error creating research request:', error);
+      res.status(500).json({ error: 'Failed to create research request' });
+    }
+  });
+
+  app.get('/api/research/requests', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { profileId, status } = req.query;
+      
+      const requests = await storage.getResearchRequests(
+        req.user!.id, 
+        profileId ? Number(profileId) : undefined,
+        status as string
+      );
+      
+      res.json(requests);
+    } catch (error) {
+      console.error('Error fetching research requests:', error);
+      res.status(500).json({ error: 'Failed to fetch research requests' });
+    }
+  });
+
+  app.post('/api/research/reports/generate', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { requestId } = req.body;
+      
+      if (!requestId) {
+        return res.status(400).json({ error: 'Request ID is required' });
+      }
+      
+      // Get user context and local knowledge
+      const userContext = await storage.getUserContext(req.user!.id);
+      const contextUrls = await storage.getContextUrls(req.user!.id, 0); // Default profile for now
+      const contextMessages = await storage.getContextChatMessages(req.user!.id, 0);
+      
+      // Search ChromaDB for relevant local knowledge if available
+      let localKnowledgeResults = [];
+      try {
+        if (storage.searchUrlContent && storage.searchUrlAnalysis && storage.searchChatMessages) {
+          const searchTerms = ['research', 'analysis', 'study', 'investigation'];
+          
+          for (const term of searchTerms) {
+            try {
+              const urlResults = await storage.searchUrlContent(req.user!.id, term, 3);
+              const analysisResults = await storage.searchUrlAnalysis(req.user!.id, term, 3);
+              const chatResults = await storage.searchChatMessages(req.user!.id, term, 3);
+              
+              localKnowledgeResults.push(...urlResults, ...analysisResults, ...chatResults);
+            } catch (searchError) {
+              console.warn(`Search failed for term ${term}:`, searchError);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('ChromaDB search failed, continuing without local knowledge search:', error);
+      }
+
+      // Prepare local knowledge summary
+      const localKnowledgeData = {
+        userContext: userContext?.context || {},
+        contextUrls: contextUrls.map(url => ({ 
+          title: url.title, 
+          url: url.url, 
+          content: url.content?.substring(0, 500) 
+        })),
+        contextMessages: contextMessages.map(msg => ({ 
+          role: msg.role, 
+          content: msg.content 
+        })),
+        chromaResults: localKnowledgeResults,
+      };
+
+      // Generate research report using AI
+      const reportPrompt = `
+You are a research analyst tasked with creating a comprehensive research report.
+
+LOCAL KNOWLEDGE AVAILABLE:
+${JSON.stringify(localKnowledgeData, null, 2)}
+
+Your task is to create a comprehensive research report that:
+
+1. **Executive Summary**: Provide a concise overview of the research findings
+2. **Local Knowledge Section**: Analyze and present relevant information from the user's existing context, URLs, and conversations
+3. **Internet Research Section**: Identify gaps and areas that need external research
+4. **Methodology**: Explain how the research was conducted
+5. **Key Findings**: List the most important discoveries
+6. **Recommendations**: Provide actionable recommendations based on findings
+
+IMPORTANT: 
+- Clearly separate local knowledge from internet research
+- Mark local knowledge with [LOCAL] and internet research with [INTERNET]
+- Be specific about what information comes from where
+- Identify gaps where internet research is needed
+
+Return a JSON object with the following structure:
+{
+  "title": "Research Report: [Title]",
+  "executiveSummary": "...",
+  "localKnowledgeSection": "...",
+  "internetResearchSection": "...",
+  "methodology": "...",
+  "sources": ["source1", "source2"],
+  "keyFindings": ["finding1", "finding2"],
+  "recommendations": ["recommendation1", "recommendation2"]
+}
+`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional research analyst. Return ONLY valid JSON without any markdown formatting or additional text."
+          },
+          {
+            role: "user",
+            content: reportPrompt
+          }
+        ],
+        temperature: 0.3,
+      });
+
+      const aiResponse = response.choices[0].message.content;
+      if (!aiResponse) {
+        throw new Error('No response from AI');
+      }
+
+      // Parse the AI response
+      let reportData;
+      try {
+        let jsonString = aiResponse.trim();
+        if (jsonString.startsWith('```json')) {
+          jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (jsonString.startsWith('```')) {
+          jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        reportData = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', aiResponse);
+        throw new Error('Failed to parse research report from AI');
+      }
+
+      // Create the research report
+      const report = await storage.createResearchReport({
+        requestId,
+        userId: req.user!.id,
+        profileId: 0, // Default profile for now
+        title: reportData.title,
+        executiveSummary: reportData.executiveSummary,
+        localKnowledgeSection: reportData.localKnowledgeSection,
+        internetResearchSection: reportData.internetResearchSection,
+        methodology: reportData.methodology,
+        sources: reportData.sources || [],
+        keyFindings: reportData.keyFindings || [],
+        recommendations: reportData.recommendations || [],
+        status: 'final',
+        completedAt: new Date(),
+      });
+
+      res.json({
+        success: true,
+        reportId: report.id,
+        title: report.title,
+        status: report.status,
+        message: `Research report "${report.title}" generated successfully.`,
+        report: {
+          title: report.title,
+          executiveSummary: report.executiveSummary,
+          localKnowledgeSection: report.localKnowledgeSection,
+          internetResearchSection: report.internetResearchSection,
+          keyFindings: report.keyFindings,
+          recommendations: report.recommendations,
+        },
+      });
+    } catch (error) {
+      console.error('Error generating research report:', error);
+      res.status(500).json({ error: 'Failed to generate research report' });
+    }
+  });
+
+  app.get('/api/research/reports', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { profileId } = req.query;
+      
+      const reports = await storage.getResearchReports(
+        req.user!.id, 
+        profileId ? Number(profileId) : undefined
+      );
+      
+      res.json(reports);
+    } catch (error) {
+      console.error('Error fetching research reports:', error);
+      res.status(500).json({ error: 'Failed to fetch research reports' });
     }
   });
 

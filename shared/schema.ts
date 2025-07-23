@@ -159,6 +159,42 @@ export const crawlerPages = pgTable("crawler_pages", {
   processedAt: timestamp("processed_at"),
 });
 
+// Research Requests - user-initiated research tasks
+export const researchRequests = pgTable("research_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0), // 0 for default context, or specific profile ID
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  researchAreas: jsonb("research_areas"), // Array of research areas/topics
+  priority: text("priority").notNull().default("medium"), // 'low', 'medium', 'high', 'urgent'
+  status: text("status").notNull().default("pending"), // 'pending', 'in_progress', 'completed', 'cancelled'
+  assignedTo: text("assigned_to"), // Agent or system assigned to handle this
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Research Reports - completed research documents
+export const researchReports = pgTable("research_reports", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull(), // References researchRequests.id
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0),
+  title: text("title").notNull(),
+  executiveSummary: text("executive_summary"),
+  localKnowledgeSection: text("local_knowledge_section"), // Information from existing context
+  internetResearchSection: text("internet_research_section"), // Information from internet research
+  methodology: text("methodology"), // How the research was conducted
+  sources: jsonb("sources"), // Array of sources used
+  keyFindings: jsonb("key_findings"), // Array of key findings
+  recommendations: jsonb("recommendations"), // Array of recommendations
+  status: text("status").notNull().default("draft"), // 'draft', 'review', 'final', 'archived'
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -199,6 +235,26 @@ export const insertCrawlerJobSchema = createInsertSchema(crawlerJobs).pick({
   maxPages: true,
 });
 
+export const insertResearchRequestSchema = createInsertSchema(researchRequests).pick({
+  title: true,
+  description: true,
+  researchAreas: true,
+  priority: true,
+  profileId: true,
+  dueDate: true,
+});
+
+export const insertResearchReportSchema = createInsertSchema(researchReports).pick({
+  title: true,
+  executiveSummary: true,
+  localKnowledgeSection: true,
+  internetResearchSection: true,
+  methodology: true,
+  sources: true,
+  keyFindings: true,
+  recommendations: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUrl = z.infer<typeof insertUrlSchema>;
@@ -219,3 +275,7 @@ export type RssFeedItem = typeof rssFeedItems.$inferSelect;
 export type CrawlerJob = typeof crawlerJobs.$inferSelect;
 export type InsertCrawlerJob = z.infer<typeof insertCrawlerJobSchema>;
 export type CrawlerPage = typeof crawlerPages.$inferSelect;
+export type ResearchRequest = typeof researchRequests.$inferSelect;
+export type InsertResearchRequest = z.infer<typeof insertResearchRequestSchema>;
+export type ResearchReport = typeof researchReports.$inferSelect;
+export type InsertResearchReport = z.infer<typeof insertResearchReportSchema>;

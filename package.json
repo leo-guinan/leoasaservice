@@ -45,6 +45,9 @@
     "chroma:test": "tsx scripts/test-chroma-integration.ts",
     "chroma:setup-env": "./scripts/setup-chroma-env.sh",
     "chroma:recreate": "tsx scripts/recreate-chroma-collections.ts",
+    "research:setup": "tsx scripts/setup-research-db.ts",
+    "research:test": "tsx scripts/test-research.ts",
+    "test:image-processing": "tsx scripts/test-image-processing.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",
     "rss:list": "tsx scripts/process-rss-feeds.ts --list",
     "crawler:test": "tsx scripts/test-crawler.ts"
@@ -173,7 +176,8 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.21.2",
-    "bufferutil": "^4.0.8"
+    "bufferutil": "^4.0.8",
+    "sharp": "^0.33.0"
   },
   "packageManager": "pnpm@8.15.9+sha512.499434c9d8fdd1a2794ebf4552b3b25c0a633abcee5bb15e7b5de90f32f47b513aca98cd5cfd001c31f0db454bc3804edccd578501e4ca293a6816166bbd9f81"
 }

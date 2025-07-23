@@ -562,4 +562,71 @@ export class PostgresStorage implements IStorage {
     // For now, return false as placeholder
     return false;
   }
+
+  // Research methods
+  async getResearchRequests(userId: number, profileId?: number, status?: string): Promise<any[]> {
+    // This would need the researchRequests table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createResearchRequest(userId: number, request: any): Promise<any> {
+    // This would need the researchRequests table import
+    // For now, return a mock request as placeholder
+    return {
+      id: 1,
+      userId,
+      profileId: request.profileId || 0,
+      title: request.title,
+      description: request.description,
+      researchAreas: request.researchAreas || [],
+      priority: request.priority || 'medium',
+      status: 'pending',
+      assignedTo: null,
+      dueDate: request.dueDate ? new Date(request.dueDate) : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateResearchRequest(id: number, userId: number, updates: any): Promise<any | undefined> {
+    // This would need the researchRequests table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async deleteResearchRequest(id: number, userId: number): Promise<boolean> {
+    // This would need the researchRequests table import
+    // For now, return false as placeholder
+    return false;
+  }
+
+  async getResearchReports(userId: number, profileId?: number): Promise<any[]> {
+    // This would need the researchReports table import
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async createResearchReport(report: any): Promise<any> {
+    // This would need the researchReports table import
+    // For now, return a mock report as placeholder
+    return {
+      id: 1,
+      ...report,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updateResearchReport(id: number, userId: number, updates: any): Promise<any | undefined> {
+    // This would need the researchReports table import
+    // For now, return undefined as placeholder
+    return undefined;
+  }
+
+  async deleteResearchReport(id: number, userId: number): Promise<boolean> {
+    // This would need the researchReports table import
+    // For now, return false as placeholder
+    return false;
+  }
 } 
