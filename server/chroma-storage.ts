@@ -249,6 +249,31 @@ export class ChromaEnhancedStorage implements IChromaStorage {
     return this.baseStorage.loadContextData(userId, profileId);
   }
 
+  // Context Profile methods
+  async getUserContextProfiles(userId: number) {
+    return this.baseStorage.getUserContextProfiles(userId);
+  }
+
+  async getActiveContextProfile(userId: number) {
+    return this.baseStorage.getActiveContextProfile(userId);
+  }
+
+  async createContextProfile(userId: number, profile: any) {
+    return this.baseStorage.createContextProfile(userId, profile);
+  }
+
+  async updateContextProfile(id: number, userId: number, updates: any) {
+    return this.baseStorage.updateContextProfile(id, userId, updates);
+  }
+
+  async toggleContextLock(id: number, userId: number) {
+    return this.baseStorage.toggleContextLock(id, userId);
+  }
+
+  async isContextLocked(profileId: number) {
+    return this.baseStorage.isContextLocked(profileId);
+  }
+
   // ChromaDB-specific methods
   async searchChatMessages(userId: number, query: string, limit: number = 10) {
     return chromaService.searchChatMessages(userId, query, limit);
@@ -341,6 +366,39 @@ export class ChromaEnhancedStorage implements IChromaStorage {
 
   async deleteCrawlerPage(id: number, jobId: number) {
     return this.baseStorage.deleteCrawlerPage(id, jobId);
+  }
+
+  // Research methods
+  async getResearchRequests(userId: number, profileId?: number, status?: string) {
+    return this.baseStorage.getResearchRequests(userId, profileId, status);
+  }
+
+  async createResearchRequest(userId: number, request: any) {
+    return this.baseStorage.createResearchRequest(userId, request);
+  }
+
+  async updateResearchRequest(id: number, userId: number, updates: any) {
+    return this.baseStorage.updateResearchRequest(id, userId, updates);
+  }
+
+  async deleteResearchRequest(id: number, userId: number) {
+    return this.baseStorage.deleteResearchRequest(id, userId);
+  }
+
+  async getResearchReports(userId: number, profileId?: number) {
+    return this.baseStorage.getResearchReports(userId, profileId);
+  }
+
+  async createResearchReport(report: any) {
+    return this.baseStorage.createResearchReport(report);
+  }
+
+  async updateResearchReport(id: number, userId: number, updates: any) {
+    return this.baseStorage.updateResearchReport(id, userId, updates);
+  }
+
+  async deleteResearchReport(id: number, userId: number) {
+    return this.baseStorage.deleteResearchReport(id, userId);
   }
 }
 

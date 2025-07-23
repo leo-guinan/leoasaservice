@@ -49,8 +49,12 @@
     "research:test": "tsx scripts/test-research.ts",
     "test:image-processing": "tsx scripts/test-image-processing.ts",
     "chroma:migrate": "tsx scripts/migrate-to-chroma.ts",
+    "chroma:migrate:robust": "tsx scripts/migrate-to-chroma-robust.ts",
+    "chroma:migrate:split": "tsx scripts/migrate-to-chroma-split.ts",
     "chroma:status": "tsx scripts/check-chroma-status.ts",
     "chroma:test": "tsx scripts/test-chroma-migration.ts",
+    "chroma:test:split": "tsx scripts/test-split-migration.ts",
+    "storage:check": "tsx scripts/check-storage-type.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",
     "rss:list": "tsx scripts/process-rss-feeds.ts --list",
     "crawler:test": "tsx scripts/test-crawler.ts"

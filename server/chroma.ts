@@ -244,6 +244,57 @@ class ChromaService {
     };
   }
 
+  // Helper method to reconstruct split documents
+  async reconstructSplitDocuments(collection: string, baseId: string, userId: number): Promise<string> {
+    try {
+      let collectionInstance;
+      switch (collection) {
+        case 'chat_messages':
+          collectionInstance = this.collections.chatMessages;
+          break;
+        case 'url_content':
+          collectionInstance = this.collections.urlContent;
+          break;
+        case 'url_analysis':
+          collectionInstance = this.collections.urlAnalysis;
+          break;
+        default:
+          throw new Error(`Unknown collection: ${collection}`);
+      }
+
+      if (!collectionInstance) {
+        throw new Error('ChromaDB not initialized');
+      }
+
+      // Get all parts for this document
+      const result = await collectionInstance.get({
+        where: {
+          $and: [
+            { userId: { $eq: userId } },
+            { messageId: { $eq: parseInt(baseId) } }
+          ]
+        }
+      });
+
+      if (!result.ids || result.ids.length === 0) {
+        return '';
+      }
+
+      // Sort by partIndex and reconstruct
+      const documents = result.ids.map((id: string, index: number) => ({
+        id,
+        content: result.documents?.[index] || '',
+        metadata: result.metadatas?.[index] || {},
+        partIndex: result.metadatas?.[index]?.partIndex || 0
+      })).sort((a: any, b: any) => a.partIndex - b.partIndex);
+
+      return documents.map((doc: any) => doc.content).join(' ');
+    } catch (error) {
+      console.error('Failed to reconstruct split document:', error);
+      return '';
+    }
+  }
+
   // Health check
   async healthCheck() {
     try {
