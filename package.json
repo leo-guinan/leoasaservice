@@ -48,6 +48,9 @@
     "research:setup": "tsx scripts/setup-research-db.ts",
     "research:test": "tsx scripts/test-research.ts",
     "test:image-processing": "tsx scripts/test-image-processing.ts",
+    "chroma:migrate": "tsx scripts/migrate-to-chroma.ts",
+    "chroma:status": "tsx scripts/check-chroma-status.ts",
+    "chroma:test": "tsx scripts/test-chroma-migration.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",
     "rss:list": "tsx scripts/process-rss-feeds.ts --list",
     "crawler:test": "tsx scripts/test-crawler.ts"
