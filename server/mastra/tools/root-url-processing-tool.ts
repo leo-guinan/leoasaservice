@@ -248,6 +248,35 @@ async function processRootUrl(urlId: number, userId: number, url: string) {
     console.log(`Discovering RSS feeds for: ${url}`);
     const rssFeeds = await discoverRssFeeds(url);
     
+    // Save discovered RSS feeds to database
+    if (rssFeeds.length > 0) {
+      console.log(`Saving ${rssFeeds.length} discovered RSS feeds to database`);
+      for (const feedUrl of rssFeeds) {
+        try {
+          // Check if RSS feed already exists for this user
+          const existingFeeds = await storage.getRssFeeds(userId);
+          const feedExists = existingFeeds.some(feed => feed.feedUrl === feedUrl);
+          
+          if (!feedExists) {
+            // Create new RSS feed record
+            await storage.createRssFeed(userId, {
+              feedUrl,
+              title: `Discovered from ${url}`,
+              description: `RSS feed automatically discovered from ${url}`,
+              profileId: 0, // Default context
+              fetchInterval: 1440, // 24 hours
+              maxItemsPerFetch: 20
+            });
+            console.log(`✅ Saved RSS feed: ${feedUrl}`);
+          } else {
+            console.log(`⏭️ RSS feed already exists: ${feedUrl}`);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to save RSS feed ${feedUrl}:`, error);
+        }
+      }
+    }
+    
     // Discover additional pages
     console.log(`Discovering additional pages for: ${url}`);
     const discoveredPages = await discoverPages(url);

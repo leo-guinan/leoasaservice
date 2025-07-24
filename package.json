@@ -58,6 +58,7 @@
     "chroma:test:split-logic": "tsx scripts/test-split-logic.ts",
     "test:date-parsing": "tsx scripts/test-date-parsing.ts --start $(date -d 'yesterday' +%Y-%m-%d) --end $(date +%Y-%m-%d)",
     "test:daily-context": "tsx scripts/update-contexts-daily.ts",
+    "test:rss-save": "tsx scripts/test-rss-feed-save.ts",
     "storage:check": "tsx scripts/check-storage-type.ts",
     "db:fix-schema": "tsx scripts/apply-missing-migration.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",

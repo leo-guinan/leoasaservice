@@ -418,81 +418,91 @@ export class PostgresStorage implements IStorage {
   }
 
   // RSS Feed methods
-  async getRssFeeds(userId: number): Promise<any[]> {
-    // This would need the rssFeeds table import
-    // For now, return empty array as placeholder
-    return [];
+  async getRssFeeds(userId: number): Promise<RssFeed[]> {
+    return await getDb().select().from(rssFeeds).where(eq(rssFeeds.userId, userId)).orderBy(desc(rssFeeds.createdAt));
   }
 
-  async createRssFeed(userId: number, feed: any): Promise<any> {
-    // This would need the rssFeeds table import
-    // For now, return a mock feed as placeholder
-    return {
-      id: 1,
+  async createRssFeed(userId: number, feed: InsertRssFeed): Promise<RssFeed> {
+    const result = await getDb().insert(rssFeeds).values({
+      ...feed,
       userId,
       profileId: feed.profileId || 0,
-      feedUrl: feed.feedUrl,
-      title: feed.title,
-      description: feed.description,
+      title: feed.title || null,
+      description: feed.description || null,
       lastFetched: null,
       lastItemDate: null,
       isActive: true,
       fetchInterval: feed.fetchInterval || 1440,
       maxItemsPerFetch: feed.maxItemsPerFetch || 50,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    }).returning();
+    return result[0];
   }
 
-  async updateRssFeed(id: number, userId: number, updates: any): Promise<any | undefined> {
-    // This would need the rssFeeds table import
-    // For now, return undefined as placeholder
-    return undefined;
+  async updateRssFeed(id: number, userId: number, updates: any): Promise<RssFeed | undefined> {
+    const result = await getDb().update(rssFeeds)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(rssFeeds.id, id), eq(rssFeeds.userId, userId)))
+      .returning();
+    return result[0];
   }
 
   async updateRssFeedLastFetched(id: number): Promise<void> {
-    // This would need the rssFeeds table import
-    // For now, do nothing as placeholder
+    await getDb().update(rssFeeds)
+      .set({ lastFetched: new Date(), updatedAt: new Date() })
+      .where(eq(rssFeeds.id, id));
   }
 
   async updateRssFeedMetadata(id: number, updates: any): Promise<void> {
-    // This would need the rssFeeds table import
-    // For now, do nothing as placeholder
+    await getDb().update(rssFeeds)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(rssFeeds.id, id));
   }
 
   async deleteRssFeed(id: number, userId: number): Promise<boolean> {
-    // This would need the rssFeeds table import
-    // For now, return false as placeholder
-    return false;
+    const result = await getDb().delete(rssFeeds)
+      .where(and(eq(rssFeeds.id, id), eq(rssFeeds.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 
   // RSS Feed Item methods
-  async getRssFeedItems(userId: number, feedId?: number): Promise<any[]> {
-    // This would need the rssFeedItems table import
-    // For now, return empty array as placeholder
-    return [];
+  async getRssFeedItems(userId: number, feedId?: number): Promise<RssFeedItem[]> {
+    const whereConditions = [eq(rssFeedItems.userId, userId)];
+    if (feedId) {
+      whereConditions.push(eq(rssFeedItems.feedId, feedId));
+    }
+    return await getDb().select().from(rssFeedItems).where(and(...whereConditions)).orderBy(desc(rssFeedItems.createdAt));
   }
 
-  async createRssFeedItem(item: any): Promise<any> {
-    // This would need the rssFeedItems table import
-    // For now, return a mock item as placeholder
-    return {
-      id: 1,
+  async createRssFeedItem(item: Omit<RssFeedItem, 'id' | 'createdAt'>): Promise<RssFeedItem> {
+    const result = await getDb().insert(rssFeedItems).values({
       ...item,
-      createdAt: new Date(),
-    };
+      profileId: item.profileId || 0,
+      title: item.title,
+      description: item.description || null,
+      content: item.content || null,
+      link: item.link,
+      author: item.author || null,
+      publishedAt: item.publishedAt || null,
+      guid: item.guid,
+      isProcessed: item.isProcessed || false,
+    }).returning();
+    return result[0];
   }
 
-  async updateRssFeedItem(id: number, updates: any): Promise<any | undefined> {
-    // This would need the rssFeedItems table import
-    // For now, return undefined as placeholder
-    return undefined;
+  async updateRssFeedItem(id: number, updates: any): Promise<RssFeedItem | undefined> {
+    const result = await getDb().update(rssFeedItems)
+      .set(updates)
+      .where(eq(rssFeedItems.id, id))
+      .returning();
+    return result[0];
   }
 
   async deleteRssFeedItem(id: number, userId: number): Promise<boolean> {
-    // This would need the rssFeedItems table import
-    // For now, return false as placeholder
-    return false;
+    const result = await getDb().delete(rssFeedItems)
+      .where(and(eq(rssFeedItems.id, id), eq(rssFeedItems.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 
   // Crawler methods
