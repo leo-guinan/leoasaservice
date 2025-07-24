@@ -54,6 +54,8 @@
     "chroma:migrate:production": "tsx scripts/run-split-migration-production.ts",
     "chroma:status": "tsx scripts/check-chroma-status.ts",
     "chroma:test:split": "tsx scripts/test-split-migration.ts",
+    "chroma:test:production": "tsx scripts/test-production-migration.ts",
+    "chroma:test:split-logic": "tsx scripts/test-split-logic.ts",
     "storage:check": "tsx scripts/check-storage-type.ts",
     "db:fix-schema": "tsx scripts/apply-missing-migration.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",

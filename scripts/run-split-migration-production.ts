@@ -17,7 +17,7 @@ interface MigrationStats {
   errors: string[];
 }
 
-class ProductionSplitChromaMigrationService {
+export class ProductionSplitChromaMigrationService {
   private stats: MigrationStats = {
     users: 0,
     chatMessages: { total: 0, migrated: 0, skipped: 0, failed: 0, parts: 0 },
