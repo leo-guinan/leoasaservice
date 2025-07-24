@@ -42,7 +42,7 @@
     "prod-migrate-urls": "tsx scripts/prod-migrate-urls.ts",
     "cleanup-main-urls": "tsx scripts/cleanup-main-urls.ts",
     "chroma:delete-all": "tsx scripts/delete-chroma-collections.ts",
-    "chroma:test": "tsx scripts/test-chroma-integration.ts",
+    "chroma:test": "tsx scripts/test-chroma-migration.ts",
     "chroma:setup-env": "./scripts/setup-chroma-env.sh",
     "chroma:recreate": "tsx scripts/recreate-chroma-collections.ts",
     "research:setup": "tsx scripts/setup-research-db.ts",
@@ -53,7 +53,6 @@
     "chroma:migrate:split": "tsx scripts/migrate-to-chroma-split.ts",
     "chroma:migrate:production": "tsx scripts/run-split-migration-production.ts",
     "chroma:status": "tsx scripts/check-chroma-status.ts",
-    "chroma:test": "tsx scripts/test-chroma-migration.ts",
     "chroma:test:split": "tsx scripts/test-split-migration.ts",
     "storage:check": "tsx scripts/check-storage-type.ts",
     "db:fix-schema": "tsx scripts/apply-missing-migration.ts",
@@ -70,7 +69,6 @@
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@mastra/core": "^0.10.15",
-
     "@mastra/loggers": "^0.10.3",
     "@mastra/memory": "^0.11.3",
     "@neondatabase/serverless": "^0.10.4",
@@ -146,7 +144,6 @@
     "recharts": "^2.15.2",
     "remark-gfm": "^4.0.1",
     "rss-parser": "^3.13.0",
-
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.2.5",
@@ -186,7 +183,7 @@
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.21.2",
     "bufferutil": "^4.0.8",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.5"
   },
   "packageManager": "pnpm@8.15.9+sha512.499434c9d8fdd1a2794ebf4552b3b25c0a633abcee5bb15e7b5de90f32f47b513aca98cd5cfd001c31f0db454bc3804edccd578501e4ca293a6816166bbd9f81"
 }
