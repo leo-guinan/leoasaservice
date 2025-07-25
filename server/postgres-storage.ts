@@ -1,6 +1,6 @@
 import { eq, desc, asc, and } from "drizzle-orm";
 import { getDb } from "./db";
-import { users, urls, chatMessages, leoQuestions, userContexts, userContextProfiles, contextUrls, contextChatMessages, rssFeeds, rssFeedItems, crawlerJobs, crawlerPages, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type UserContextProfile, type ContextUrl, type ContextChatMessage, type RssFeed, type InsertRssFeed, type RssFeedItem, type CrawlerJob, type InsertCrawlerJob, type CrawlerPage } from "@shared/schema";
+import { users, urls, chatMessages, leoQuestions, userContexts, userContextProfiles, contextUrls, contextChatMessages, rssFeeds, rssFeedItems, crawlerJobs, crawlerPages, ontologies, type User, type InsertUser, type Url, type InsertUrl, type ChatMessage, type InsertChatMessage, type LeoQuestion, type InsertLeoQuestion, type UserContext, type UserContextProfile, type ContextUrl, type ContextChatMessage, type RssFeed, type InsertRssFeed, type RssFeedItem, type CrawlerJob, type InsertCrawlerJob, type CrawlerPage, type Ontology, type InsertOntology } from "@shared/schema";
 import type { IStorage } from "./storage";
 import { hashPassword } from "./auth";
 import { sql } from "drizzle-orm";
@@ -638,5 +638,61 @@ export class PostgresStorage implements IStorage {
     // This would need the researchReports table import
     // For now, return false as placeholder
     return false;
+  }
+
+  // Ontology methods
+  async getOntologies(userId: number, profileId?: number): Promise<Ontology[]> {
+    let conditions = [eq(ontologies.userId, userId)];
+    
+    if (profileId !== undefined) {
+      conditions.push(eq(ontologies.profileId, profileId));
+    }
+    
+    return await getDb().select().from(ontologies)
+      .where(and(...conditions))
+      .orderBy(desc(ontologies.createdAt));
+  }
+
+  async createOntology(userId: number, profileId: number, ontology: InsertOntology): Promise<Ontology> {
+    const result = await getDb().insert(ontologies).values({
+      ...ontology,
+      userId,
+      profileId: profileId || 0,
+      concepts: ontology.concepts || [],
+      relationships: ontology.relationships || [],
+      metadata: ontology.metadata || {},
+      generatedFrom: ontology.generatedFrom || {},
+    }).returning();
+    return result[0];
+  }
+
+  async updateOntology(id: number, userId: number, updates: any): Promise<Ontology | undefined> {
+    const result = await getDb().update(ontologies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(ontologies.id, id), eq(ontologies.userId, userId)))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteOntology(id: number, userId: number): Promise<boolean> {
+    const result = await getDb().delete(ontologies)
+      .where(and(eq(ontologies.id, id), eq(ontologies.userId, userId)))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async getActiveOntology(userId: number, profileId?: number): Promise<Ontology | undefined> {
+    let conditions = [eq(ontologies.userId, userId), eq(ontologies.isActive, true)];
+    
+    if (profileId !== undefined) {
+      conditions.push(eq(ontologies.profileId, profileId));
+    }
+    
+    const result = await getDb().select().from(ontologies)
+      .where(and(...conditions))
+      .limit(1);
+    return result[0];
   }
 } 

@@ -93,6 +93,13 @@ export interface IStorage {
   updateResearchReport(id: number, userId: number, updates: any): Promise<any | undefined>;
   deleteResearchReport(id: number, userId: number): Promise<boolean>;
   
+  // Ontology methods
+  getOntologies(userId: number, profileId?: number): Promise<any[]>;
+  createOntology(userId: number, profileId: number, ontology: any): Promise<any>;
+  updateOntology(id: number, userId: number, updates: any): Promise<any | undefined>;
+  deleteOntology(id: number, userId: number): Promise<boolean>;
+  getActiveOntology(userId: number, profileId?: number): Promise<any | undefined>;
+  
   // ChromaDB search methods (if available)
   searchUrlContent?(userId: number, query: string, limit?: number): Promise<any>;
   searchUrlAnalysis?(userId: number, query: string, limit?: number): Promise<any>;
@@ -709,6 +716,66 @@ export class MemStorage implements IStorage {
       return true;
     }
     return false;
+  }
+
+  // Ontology methods
+  private ontologies: Map<number, any> = new Map();
+  private currentOntologyId: number = 1;
+
+  async getOntologies(userId: number, profileId?: number): Promise<any[]> {
+    let ontologyList = Array.from(this.ontologies.values()).filter(ontology => ontology.userId === userId);
+    
+    if (profileId !== undefined) {
+      ontologyList = ontologyList.filter(ontology => ontology.profileId === profileId);
+    }
+    
+    return ontologyList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createOntology(userId: number, profileId: number, ontology: any): Promise<any> {
+    const id = this.currentOntologyId++;
+    const newOntology = {
+      id,
+      userId,
+      profileId: profileId || 0,
+      name: ontology.name,
+      description: ontology.description,
+      domain: ontology.domain,
+      version: ontology.version || 1,
+      concepts: ontology.concepts || [],
+      relationships: ontology.relationships || [],
+      metadata: ontology.metadata || {},
+      isActive: ontology.isActive !== undefined ? ontology.isActive : true,
+      generatedFrom: ontology.generatedFrom || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.ontologies.set(id, newOntology);
+    return newOntology;
+  }
+
+  async updateOntology(id: number, userId: number, updates: any): Promise<any | undefined> {
+    const ontology = this.ontologies.get(id);
+    if (ontology && ontology.userId === userId) {
+      const updatedOntology = { ...ontology, ...updates, updatedAt: new Date() };
+      this.ontologies.set(id, updatedOntology);
+      return updatedOntology;
+    }
+    return undefined;
+  }
+
+  async deleteOntology(id: number, userId: number): Promise<boolean> {
+    const ontology = this.ontologies.get(id);
+    if (ontology && ontology.userId === userId) {
+      this.ontologies.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  async getActiveOntology(userId: number, profileId?: number): Promise<any | undefined> {
+    const ontologies = await this.getOntologies(userId, profileId);
+    return ontologies.find(ontology => ontology.isActive);
   }
 }
 

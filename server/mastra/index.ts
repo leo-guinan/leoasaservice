@@ -10,12 +10,13 @@ import { contextAgent } from './agents/context-agent';
 import { chatAgent } from './agents/chat-agent';
 import { contextSummaryAgent } from './agents/context-summary-agent';
 import { urlProcessingAgent } from './agents/url-processing-agent';
+import { ontologyAgent } from './agents/ontology-agent';
 import { contextProfileTool } from './tools/context-profile-tool';
 import { manualContextUpdateTool } from './tools/manual-context-update-tool';
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow, userContextWorkflow, urlProcessingWorkflow },
-  agents: { weatherAgent, userActivityAgent, contextAgent, chatAgent, contextSummaryAgent, urlProcessingAgent },
+  agents: { weatherAgent, userActivityAgent, contextAgent, chatAgent, contextSummaryAgent, urlProcessingAgent, ontologyAgent },
   logger: new PinoLogger({
     name: 'Mastra',
     level: 'info',

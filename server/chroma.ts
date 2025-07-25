@@ -15,7 +15,8 @@ const client = new CloudClient({
 const COLLECTIONS = {
   CHAT_MESSAGES: 'chat_messages',
   URL_CONTENT: 'url_content',
-  URL_ANALYSIS: 'url_analysis'
+  URL_ANALYSIS: 'url_analysis',
+  ONTOLOGIES: 'ontologies'
 } as const;
 
 export interface ChromaDocument {
@@ -53,11 +54,23 @@ export interface UrlAnalysisDocument extends ChromaDocument {
   };
 }
 
+export interface OntologyDocument extends ChromaDocument {
+  metadata: {
+    userId: number;
+    profileId: number;
+    ontologyId: number;
+    domain: string;
+    version: number;
+    timestamp: string;
+  };
+}
+
 class ChromaService {
   private collections: {
     chatMessages?: any;
     urlContent?: any;
     urlAnalysis?: any;
+    ontologies?: any;
   } = {};
 
   async initialize() {
@@ -68,6 +81,7 @@ class ChromaService {
       this.collections.chatMessages = await this.getOrCreateCollection(COLLECTIONS.CHAT_MESSAGES);
       this.collections.urlContent = await this.getOrCreateCollection(COLLECTIONS.URL_CONTENT);
       this.collections.urlAnalysis = await this.getOrCreateCollection(COLLECTIONS.URL_ANALYSIS);
+      this.collections.ontologies = await this.getOrCreateCollection(COLLECTIONS.ONTOLOGIES);
       
       console.log('ChromaDB collections initialized successfully');
     } catch (error) {
@@ -213,9 +227,73 @@ class ChromaService {
     return results;
   }
 
+  // Ontology methods
+  async addOntology(ontology: OntologyDocument) {
+    if (!this.collections.ontologies) {
+      throw new Error('ChromaDB not initialized');
+    }
+
+    try {
+      await this.collections.ontologies.add({
+        ids: [ontology.id],
+        documents: [ontology.content],
+        metadatas: [ontology.metadata]
+      });
+    } catch (error) {
+      console.error('Error adding ontology to ChromaDB:', error);
+      throw error;
+    }
+  }
+
+  async searchOntologies(userId: number, query: string, limit: number = 10) {
+    if (!this.collections.ontologies) {
+      throw new Error('ChromaDB not initialized');
+    }
+
+    try {
+      const result = await this.collections.ontologies.query({
+        queryTexts: [query],
+        nResults: limit,
+        where: { userId: { $eq: userId } }
+      });
+
+      return result.ids[0].map((id: string, index: number) => ({
+        id,
+        content: result.documents?.[0]?.[index] || '',
+        metadata: result.metadatas?.[0]?.[index] || {},
+        distance: result.distances?.[0]?.[index] || 0
+      }));
+    } catch (error) {
+      console.error('Error searching ontologies:', error);
+      throw error;
+    }
+  }
+
+  async getOntologiesByUser(userId: number, limit: number = 100) {
+    if (!this.collections.ontologies) {
+      throw new Error('ChromaDB not initialized');
+    }
+
+    try {
+      const result = await this.collections.ontologies.get({
+        where: { userId: { $eq: userId } },
+        limit: limit
+      });
+
+      return result.ids.map((id: string, index: number) => ({
+        id,
+        content: result.documents?.[index] || '',
+        metadata: result.metadatas?.[index] || {}
+      }));
+    } catch (error) {
+      console.error('Error getting ontologies by user:', error);
+      throw error;
+    }
+  }
+
   // Utility methods
   async deleteUserData(userId: number) {
-    const collections = [this.collections.chatMessages, this.collections.urlContent, this.collections.urlAnalysis];
+    const collections = [this.collections.chatMessages, this.collections.urlContent, this.collections.urlAnalysis, this.collections.ontologies];
     
     for (const collection of collections) {
       if (collection) {
@@ -231,16 +309,18 @@ class ChromaService {
   }
 
   async searchAll(userId: number, query: string, limit: number = 5) {
-    const [chatResults, urlContentResults, urlAnalysisResults] = await Promise.all([
+    const [chatResults, urlContentResults, urlAnalysisResults, ontologyResults] = await Promise.all([
       this.searchChatMessages(userId, query, limit),
       this.searchUrlContent(userId, query, limit),
-      this.searchUrlAnalysis(userId, query, limit)
+      this.searchUrlAnalysis(userId, query, limit),
+      this.searchOntologies(userId, query, limit)
     ]);
 
     return {
       chatMessages: chatResults,
       urlContent: urlContentResults,
-      urlAnalysis: urlAnalysisResults
+      urlAnalysis: urlAnalysisResults,
+      ontologies: ontologyResults
     };
   }
 
@@ -257,6 +337,9 @@ class ChromaService {
           break;
         case 'url_analysis':
           collectionInstance = this.collections.urlAnalysis;
+          break;
+        case 'ontologies':
+          collectionInstance = this.collections.ontologies;
           break;
         default:
           throw new Error(`Unknown collection: ${collection}`);

@@ -195,6 +195,24 @@ export const researchReports = pgTable("research_reports", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Ontologies - knowledge graphs generated from context
+export const ontologies = pgTable("ontologies", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  profileId: integer("profile_id").notNull().default(0), // 0 for default context, or specific profile ID
+  name: text("name").notNull(), // Ontology name
+  description: text("description"), // Optional description
+  domain: text("domain"), // Domain/topic area (e.g., "AI", "Blockchain", "Biology")
+  version: integer("version").notNull().default(1), // Version tracking
+  concepts: jsonb("concepts").notNull(), // Array of concept objects with properties, relationships, etc.
+  relationships: jsonb("relationships").notNull(), // Array of relationship objects
+  metadata: jsonb("metadata"), // Additional metadata (confidence scores, sources, etc.)
+  isActive: boolean("is_active").notNull().default(true), // Whether this ontology is currently active
+  generatedFrom: jsonb("generated_from"), // Information about what data was used to generate this ontology
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -255,6 +273,16 @@ export const insertResearchReportSchema = createInsertSchema(researchReports).pi
   recommendations: true,
 });
 
+export const insertOntologySchema = createInsertSchema(ontologies).pick({
+  name: true,
+  description: true,
+  domain: true,
+  concepts: true,
+  relationships: true,
+  metadata: true,
+  generatedFrom: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUrl = z.infer<typeof insertUrlSchema>;
@@ -279,3 +307,5 @@ export type ResearchRequest = typeof researchRequests.$inferSelect;
 export type InsertResearchRequest = z.infer<typeof insertResearchRequestSchema>;
 export type ResearchReport = typeof researchReports.$inferSelect;
 export type InsertResearchReport = z.infer<typeof insertResearchReportSchema>;
+export type Ontology = typeof ontologies.$inferSelect;
+export type InsertOntology = z.infer<typeof insertOntologySchema>;

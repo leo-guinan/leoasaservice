@@ -50,6 +50,13 @@
       "when": 1753371190967,
       "tag": "0006_chief_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753481340974,
+      "tag": "0007_fixed_excalibur",
+      "breakpoints": true
     }
   ]
 }
