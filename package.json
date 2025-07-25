@@ -59,6 +59,8 @@
     "test:date-parsing": "tsx scripts/test-date-parsing.ts --start $(date -d 'yesterday' +%Y-%m-%d) --end $(date +%Y-%m-%d)",
     "test:daily-context": "tsx scripts/update-contexts-daily.ts",
     "test:rss-save": "tsx scripts/test-rss-feed-save.ts",
+    "test:github-analysis": "tsx scripts/test-github-analysis.ts",
+    "test:bounded-contexts": "tsx scripts/test-bounded-contexts.ts",
     "storage:check": "tsx scripts/check-storage-type.ts",
     "db:fix-schema": "tsx scripts/apply-missing-migration.ts",
     "rss:process": "tsx scripts/process-rss-feeds.ts",

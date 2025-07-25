@@ -2,22 +2,24 @@ import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { leafUrlProcessingTool } from '../tools/leaf-url-processing-tool';
 import { rootUrlProcessingTool } from '../tools/root-url-processing-tool';
+import { githubRepoAnalysisTool } from '../tools/github-repo-analysis-tool';
+import { urlTypeDetectionTool } from '../tools/url-type-detection-tool';
 
 // Step 1: Determine URL type
 const determineUrlType = createStep({
   id: 'determine-url-type',
-  description: 'Analyze the URL to determine if it should be processed as a leaf or root URL',
+  description: 'Analyze the URL to determine the appropriate processing method',
   inputSchema: z.object({
     urlId: z.number().describe('Database ID of the URL to process'),
     userId: z.number().describe('User ID who owns the URL'),
     url: z.string().describe('The URL to process'),
-    urlType: z.enum(['leaf', 'root', 'auto']).describe('Type of URL processing to perform. "auto" will determine automatically'),
+    urlType: z.enum(['leaf', 'root', 'github-repo', 'auto']).describe('Type of URL processing to perform. "auto" will determine automatically'),
   }),
   outputSchema: z.object({
     urlId: z.number(),
     userId: z.number(),
     url: z.string(),
-    urlType: z.enum(['leaf', 'root']),
+    urlType: z.enum(['leaf', 'root', 'github-repo']),
     reasoning: z.string(),
   }),
   execute: async ({ inputData }) => {
@@ -34,6 +36,18 @@ const determineUrlType = createStep({
         urlType,
         reasoning: `URL type explicitly set to ${urlType}`
       };
+    }
+
+    // Check for GitHub repository
+    if (url.includes('github.com')) {
+      const githubMatch = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (githubMatch) {
+        return {
+          ...inputData,
+          urlType: 'github-repo' as const,
+          reasoning: `Detected GitHub repository: ${githubMatch[1]}/${githubMatch[2]}`
+        };
+      }
     }
     
     // Auto-determine URL type based on URL characteristics
@@ -92,7 +106,7 @@ const processUrl = createStep({
     urlId: z.number(),
     userId: z.number(),
     url: z.string(),
-    urlType: z.enum(['leaf', 'root']),
+    urlType: z.enum(['leaf', 'root', 'github-repo']),
     reasoning: z.string(),
   }),
   outputSchema: z.object({
@@ -129,6 +143,23 @@ const processUrl = createStep({
           urlType: 'leaf',
           contentLength: result.contentLength,
           analysis: result.analysis,
+          message: result.message
+        };
+      } else if (urlType === 'github-repo') {
+        // Use GitHub repository analysis tool
+        const result = await githubRepoAnalysisTool.execute({
+          context: { url, userId, profileId: 0 }
+        } as any);
+        
+        return {
+          success: result.success,
+          urlType: 'github-repo',
+          contentLength: 0, // GitHub analysis doesn't return content length
+          analysis: {
+            summary: result.message,
+            timestamp: new Date().toISOString(),
+            model: 'github-analyzer'
+          },
           message: result.message
         };
       } else {
@@ -171,7 +202,7 @@ const urlProcessingWorkflow = createWorkflow({
     urlId: z.number().describe('Database ID of the URL to process'),
     userId: z.number().describe('User ID who owns the URL'),
     url: z.string().describe('The URL to process'),
-    urlType: z.enum(['leaf', 'root', 'auto']).describe('Type of URL processing to perform. "auto" will determine automatically'),
+    urlType: z.enum(['leaf', 'root', 'github-repo', 'auto']).describe('Type of URL processing to perform. "auto" will determine automatically'),
   }),
   outputSchema: z.object({
     success: z.boolean(),
